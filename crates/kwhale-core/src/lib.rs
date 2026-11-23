@@ -24,8 +24,8 @@ pub use playback_state::{PlaybackState, RepeatMode, UiTrack};
 pub use reactions::{ReactionOverrides, TrackReactionStore};
 pub use server_url::ServerUrl;
 pub use storage::{
-    sanitize_key, AppPaths, AppSettings, ContentCache, ImageCache, PlaybackCache, SettingsStore,
-    TokenStore,
+    file_uri, sanitize_key, AppPaths, AppSettings, ContentCache, ImageCache, PlaybackCache,
+    SettingsStore, TokenStore,
 };
 pub use theme::{
     accent_by_id, accent_families, AccentFamily, KwhaleAccent, KwhaleCoverPalette, KwhalePalette,

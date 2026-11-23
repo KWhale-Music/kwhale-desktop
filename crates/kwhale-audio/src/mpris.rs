@@ -242,7 +242,7 @@ fn build_metadata(core: &KwhaleCore, st: &PlaybackState) -> HashMap<String, Vari
         if cached.is_file() {
             map.insert(
                 "mpris:artUrl".into(),
-                Variant::from(format!("file://{}", cached.to_string_lossy())),
+                Variant::from(kwhale_core::file_uri(&cached)),
             );
         }
     }

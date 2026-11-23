@@ -117,8 +117,8 @@ async fn handle_connection(
         Ok(r) => r,
         Err(err) => {
             warn!("upstream stream open failed for {track_id}: {err}");
-            let code = err.status_code().unwrap_or(502);
-            let msg = format!("HTTP/1.1 {code} Bad Gateway\r\nConnection: close\r\n\r\n");
+            // Never leak upstream auth/status internals to the local client.
+            let msg = "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n";
             writer.write_all(msg.as_bytes()).await?;
             return Ok(());
         }
@@ -314,7 +314,7 @@ fn should_cache_response(
         let (start_s, end_s) = range_part.split_once('-')?;
         let start: u64 = start_s.parse().ok()?;
         let end: u64 = end_s.parse().ok()?;
-        if start == 0 && end + 1 == total && total <= PREFETCH_MAX_BYTES {
+        if start == 0 && end.checked_add(1) == Some(total) && total <= PREFETCH_MAX_BYTES {
             return Some(total);
         }
     }
@@ -471,5 +471,18 @@ mod tests {
         assert!(!can_commit(true, true, 5, 10));
         // Nothing written -> no commit.
         assert!(!can_commit(true, true, 0, 0));
+    }
+
+    #[test]
+    fn should_cache_handles_malformed_range_without_overflow() {
+        // end = u64::MAX: `end + 1` would overflow; must return None, not panic.
+        assert_eq!(
+            should_cache_response(
+                206,
+                None,
+                Some("bytes 0-18446744073709551615/18446744073709551615")
+            ),
+            None
+        );
     }
 }

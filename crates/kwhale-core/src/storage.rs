@@ -119,6 +119,14 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     f.write_all(bytes)
 }
 
+/// Percent-encodes a filesystem path into a `file://` URI (safe for spaces, `#`,
+/// non-ASCII, etc.). Used for local playback and MPRIS art URLs.
+pub fn file_uri(path: &Path) -> String {
+    url::Url::from_file_path(path)
+        .map(|u| u.to_string())
+        .unwrap_or_else(|_| format!("file://{}", path.to_string_lossy()))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -648,6 +656,16 @@ mod tests {
             let mode = fs::metadata(&p).unwrap().permissions().mode();
             assert_eq!(mode & 0o777, 0o600, "secrets must never be world-readable");
         }
+    }
+
+    #[test]
+    fn file_uri_percent_encodes_special_characters() {
+        let p = std::path::Path::new("/tmp/my music/song #1.mp3");
+        let uri = file_uri(p);
+        assert!(uri.starts_with("file://"));
+        assert!(!uri.contains(' '), "spaces must be percent-encoded: {uri}");
+        assert!(uri.contains("%20"), "space -> %20: {uri}");
+        assert!(!uri.contains('#'), "'#' must be percent-encoded: {uri}");
     }
 
     #[test]

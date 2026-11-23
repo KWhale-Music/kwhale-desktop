@@ -445,10 +445,10 @@ impl AudioEngine {
 
     fn uri_for_track(&self, track: &UiTrack) -> String {
         if let Some(local) = self.core.downloads.local_file_for(&track.remote_id) {
-            return format!("file://{}", local.to_string_lossy());
+            return kwhale_core::file_uri(&local);
         }
         if let Some(cached) = self.core.playback_cache.get_cached_path(&track.remote_id) {
-            return format!("file://{}", cached.to_string_lossy());
+            return kwhale_core::file_uri(&cached);
         }
         self.proxy.url_for(&track.remote_id)
     }
@@ -711,7 +711,7 @@ impl AudioEngine {
 
 pub fn measure_duration_sec(path: &Path) -> Option<u32> {
     let discoverer = gst_pbutils::Discoverer::new(gst::ClockTime::from_seconds(5)).ok()?;
-    let uri = format!("file://{}", path.to_string_lossy());
+    let uri = kwhale_core::file_uri(path);
     let info = discoverer.discover_uri(&uri).ok()?;
     info.duration().map(|d| d.seconds() as u32)
 }
