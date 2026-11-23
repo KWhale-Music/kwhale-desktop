@@ -1,0 +1,15 @@
+[package]
+name = "kwhale-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+slint = "1"
+anyhow.workspace = true
+kwhale-core = { path = "../kwhale-core" }
+kwhale-audio = { path = "../kwhale-audio" }
+tokio.workspace = true
+
+[build-dependencies]
+slint-build = "1"

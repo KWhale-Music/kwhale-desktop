@@ -6,6 +6,7 @@ members = [
     "crates/kwhale-adw",
     "crates/kwhale-qt",
     "crates/kwhale-launcher",
+    "crates/kwhale-ui",
 ]
 
 [workspace.package]

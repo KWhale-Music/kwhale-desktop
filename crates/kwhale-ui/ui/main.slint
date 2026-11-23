@@ -1,0 +1,281 @@
+// ===== KWhale Desktop — Adaptive Material (Slint) =====
+// Vertical slice: window/chrome + Sidebar + Home + MiniPlayer.
+// Design tokens mirror kwhale-core theme (dark theme default).
+
+// ---- Global palette (VK X / Material-style tonal surfaces) ----
+export global Palette {
+    in property <brush> surface: #121212;
+    in property <brush> surface-low: #171717;
+    in property <brush> surface-container: #1e1e1e;
+    in property <brush> surface-high: #2a2a2a;
+    in property <brush> surface-highest: #343434;
+    in property <brush> on-surface: #e6e1e5;
+    in property <brush> on-surface-variant: #cac4d0;
+    in property <brush> outline-variant: #49454f;
+    in property <brush> primary: #71aaeb;
+    in property <brush> on-primary: #000000;
+    in property <brush> primary-container: #2b4567;
+    in property <brush> on-primary-container: #d6e4ff;
+}
+
+export struct AlbumItem {
+    title: string,
+    subtitle: string,
+    cover: color,
+}
+
+// ---- Reusable: album card ----
+export component AlbumCard inherits Rectangle {
+    in property <AlbumItem> item;
+    width: 158px;
+    height: 210px;
+    background: transparent;
+    VerticalLayout {
+        spacing: 10px;
+        Rectangle {
+            width: 158px; height: 158px;
+            border-radius: 12px;
+            background: item.cover;
+        }
+        Text {
+            text: item.title;
+            color: Palette.on-surface;
+            font-size: 13px; font-weight: 600;
+            overflow: elide; max-width: 158px;
+        }
+        Text {
+            text: item.subtitle;
+            color: Palette.on-surface-variant;
+            font-size: 12px;
+            overflow: elide; max-width: 158px;
+        }
+    }
+}
+
+// ---- Reusable: track row ----
+export component TrackRow inherits Rectangle {
+    in property <string> idx;
+    in property <color> cover;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> dur;
+    in property <bool> active;
+    height: 64px;
+    border-radius: 10px;
+    background: active ? Palette.primary-container.darker(0%) : transparent;
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px;
+        spacing: 12px;
+        alignment: center;
+        Text { text: idx; color: Palette.on-surface-variant; font-size: 13px; width: 22px; horizontal-alignment: center; }
+        Rectangle { width: 48px; height: 48px; border-radius: 8px; background: cover; }
+        VerticalLayout {
+            alignment: center;
+            Text { text: title; color: active ? Palette.primary : Palette.on-surface; font-size: 14px; font-weight: 600; overflow: elide; }
+            Text { text: artist; color: Palette.on-surface-variant; font-size: 12px; overflow: elide; }
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+        Text { text: dur; color: Palette.on-surface-variant; font-size: 12px; vertical-alignment: center; }
+    }
+}
+
+// ---- Title bar (adaptive chrome; window controls drawn) ----
+component TitleBar inherits Rectangle {
+    in property <string> platform;   // "gnome" | "kde" | "windows"
+    height: 46px;
+    background: Palette.surface-low;
+    HorizontalLayout {
+        padding-left: 16px; padding-right: 8px;
+        alignment: center;
+        HorizontalLayout {
+            spacing: 9px; alignment: center;
+            Rectangle { width: 18px; height: 18px; border-radius: 5px; background: Palette.primary; }
+            Text { text: "KWhale"; color: Palette.on-surface; font-size: 14px; font-weight: 700; vertical-alignment: center; }
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+        // window controls
+        HorizontalLayout {
+            spacing: 6px; alignment: center;
+            Rectangle { width: 30px; height: 30px; border-radius: platform == "gnome" ? 15px : 6px; background: transparent;
+                Text { text: "–"; color: Palette.on-surface-variant; font-size: 15px; horizontal-alignment: center; vertical-alignment: center; } }
+            Rectangle { width: 30px; height: 30px; border-radius: platform == "gnome" ? 15px : 6px; background: transparent;
+                Text { text: "▢"; color: Palette.on-surface-variant; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; } }
+            Rectangle { width: 30px; height: 30px; border-radius: platform == "gnome" ? 15px : 6px; background: transparent;
+                Text { text: "✕"; color: Palette.on-surface-variant; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; } }
+        }
+    }
+}
+
+// ---- Sidebar ----
+component Sidebar inherits Rectangle {
+    in property <string> active;
+    callback nav(string);
+    width: 236px;
+    background: Palette.surface-low;
+    VerticalLayout {
+        padding: 16px; spacing: 4px;
+        HorizontalLayout { padding-bottom: 12px; spacing: 10px;
+            Rectangle { width: 30px; height: 30px; border-radius: 8px; background: Palette.primary; }
+            Text { text: "KWhale"; color: Palette.on-surface; font-size: 16px; font-weight: 700; vertical-alignment: center; }
+        }
+        for nav-item in ["home", "search", "library", "settings"]: Rectangle {
+            height: 42px; border-radius: 10px;
+            background: active == nav-item ? Palette.primary-container : transparent;
+            HorizontalLayout { padding-left: 12px; spacing: 12px; alignment: center;
+                Text {
+                    text: nav-item == "home" ? "Главная" : nav-item == "search" ? "Поиск" : nav-item == "library" ? "Библиотека" : "Настройки";
+                    color: active == nav-item ? Palette.on-primary-container : Palette.on-surface-variant;
+                    font-size: 14px; font-weight: active == nav-item ? 600 : 500;
+                }
+            }
+            TouchArea { clicked => { root.nav(nav-item); } }
+        }
+        Rectangle { height: 10px; background: transparent; }
+        Text { text: "МОЯ МУЗЫКА"; color: Palette.on-surface-variant; font-size: 11px; font-weight: 700; }
+        Rectangle { height: 4px; background: transparent; }
+        for pl in ["Любимые треки", "Вечерний микс", "Дорога домой", "Фокус"]: Rectangle {
+            height: 34px; border-radius: 9px; background: transparent;
+            HorizontalLayout { padding-left: 12px; spacing: 10px; alignment: center;
+                Rectangle { width: 22px; height: 22px; border-radius: 6px; background: Palette.surface-highest; }
+                Text { text: pl; color: Palette.on-surface-variant; font-size: 13px; }
+            }
+        }
+    }
+}
+
+// ---- Mini player ----
+component MiniPlayer inherits Rectangle {
+    in property <color> cover;
+    in property <string> title;
+    in property <string> artist;
+    in property <bool> playing;
+    callback toggle();
+    callback next();
+    height: 72px;
+    background: Palette.surface-container;
+    HorizontalLayout {
+        padding-left: 16px; padding-right: 16px; spacing: 14px; alignment: center;
+        Rectangle { width: 48px; height: 48px; border-radius: 8px; background: cover; }
+        VerticalLayout { alignment: center;
+            Text { text: title; color: Palette.on-surface; font-size: 13px; font-weight: 600; overflow: elide; }
+            Text { text: artist; color: Palette.on-surface-variant; font-size: 12px; overflow: elide; }
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+        // transport
+        Rectangle { width: 40px; height: 40px; border-radius: 10px; background: transparent;
+            Text { text: "⏮"; color: Palette.on-surface; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; } }
+        Rectangle {
+            width: 44px; height: 44px; border-radius: 22px; background: Palette.primary;
+            Text { text: playing ? "⏸" : "▶"; color: Palette.on-primary; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; }
+            TouchArea { clicked => { root.toggle(); } }
+        }
+        Rectangle { width: 40px; height: 40px; border-radius: 10px; background: transparent;
+            Text { text: "⏭"; color: Palette.on-surface; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; }
+            TouchArea { clicked => { root.next(); } } }
+    }
+}
+
+// ---- Home screen ----
+component HomeScreen inherits Rectangle {
+    in property <string> greeting;
+    in property <string> subgreeting;
+    in property <[AlbumItem]> albums;
+    in property <[AlbumItem]> recent;
+    background: Palette.surface;
+    VerticalLayout {
+        padding: 26px; spacing: 0;
+        Text { text: greeting; color: Palette.on-surface; font-size: 30px; font-weight: 700; }
+        Rectangle { height: 4px; background: transparent; }
+        Text { text: subgreeting; color: Palette.on-surface-variant; font-size: 14px; }
+
+        Rectangle { height: 20px; background: transparent; }
+
+        // Hero "continue" card
+        Rectangle {
+            height: 160px; border-radius: 18px;
+            background: Palette.primary-container;
+            HorizontalLayout { padding: 22px; spacing: 22px; alignment: center;
+                Rectangle { width: 116px; height: 116px; border-radius: 14px; background: #6b5aa8; }
+                VerticalLayout { alignment: center; spacing: 4px;
+                    Text { text: "ПРОДОЛЖИТЬ СЛУШАТЬ"; color: Palette.primary; font-size: 11px; font-weight: 700; }
+                    Text { text: "Небо над нами"; color: Palette.on-surface; font-size: 26px; font-weight: 700; }
+                    Text { text: "Земфира · Прости меня моя любовь"; color: Palette.on-surface-variant; font-size: 14px; }
+                    Rectangle { height: 8px; background: transparent; }
+                    Rectangle { height: 4px; border-radius: 2px; background: Palette.outline-variant;
+                        Rectangle { width: parent.width * 0.42; height: 4px; border-radius: 2px; background: Palette.primary; }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Rectangle { width: 58px; height: 58px; border-radius: 29px; background: Palette.primary;
+                    Text { text: "▶"; color: Palette.on-primary; font-size: 22px; horizontal-alignment: center; vertical-alignment: center; } }
+            }
+        }
+
+        // Recommended shelf
+        Rectangle { height: 24px; background: transparent; }
+        Text { text: "Рекомендуем вам"; color: Palette.on-surface; font-size: 20px; font-weight: 700; }
+        Rectangle { height: 12px; background: transparent; }
+        HorizontalLayout {
+            spacing: 16px;
+            for a in albums: AlbumCard { item: a; }
+        }
+
+        // Recent shelf
+        Rectangle { height: 20px; background: transparent; }
+        Text { text: "Недавно слушали"; color: Palette.on-surface; font-size: 20px; font-weight: 700; }
+        Rectangle { height: 12px; background: transparent; }
+        HorizontalLayout {
+            spacing: 16px;
+            for a in recent: AlbumCard { item: a; }
+        }
+    }
+}
+
+// ---- Main window ----
+export component MainWindow inherits Window {
+    title: "KWhale";
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    background: Palette.surface;
+
+    in property <string> platform: "gnome";
+    in-out property <string> active-nav: "home";
+    in property <string> greeting: "Добрый вечер";
+    in property <string> subgreeting: "Продолжим с того места, где остановились";
+    in property <[AlbumItem]> albums;
+    in property <[AlbumItem]> recent;
+    in property <bool> playing: false;
+    in property <string> now-title: "Небо над нами";
+    in property <string> now-artist: "Земфира · Прости меня моя любовь";
+    in property <color> now-cover: #6b5aa8;
+    callback toggle-play();
+    callback next-track();
+    callback nav(string);
+
+    VerticalLayout {
+        spacing: 0;
+        TitleBar { platform: root.platform; }
+        HorizontalLayout {
+            spacing: 0;
+            Sidebar { active: root.active-nav; nav(s) => { root.active-nav = s; root.nav(s); } }
+            VerticalLayout {
+                spacing: 0;
+                HomeScreen {
+                    greeting: root.greeting;
+                    subgreeting: root.subgreeting;
+                    albums: root.albums;
+                    recent: root.recent;
+                    vertical-stretch: 1;
+                }
+                MiniPlayer {
+                    cover: root.now-cover;
+                    title: root.now-title;
+                    artist: root.now-artist;
+                    playing: root.playing;
+                    toggle => { root.toggle-play(); }
+                    next => { root.next-track(); }
+                }
+            }
+        }
+    }
+}
