@@ -847,6 +847,7 @@ pub struct GenresResponse {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProposedMetadata {
     #[serde(default)]
     pub isrc: Option<String>,
@@ -1275,5 +1276,21 @@ pub fn greeting_for_hour(hour: u32) -> &'static str {
         12..=16 => "Добрый день",
         17..=22 => "Добрый вечер",
         _ => "Доброй ночи",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proposed_metadata_uses_camel_case_on_the_wire() {
+        let json = r#"{"isrc":"USRC123","album":"X","year":2020,"genre":"Rock","coverUrl":"http://c/img"}"#;
+        let parsed: ProposedMetadata = serde_json::from_str(json).expect("deserializes");
+        // coverUrl (camelCase) must map to cover_url; without the rename it silently None.
+        assert_eq!(parsed.cover_url.as_deref(), Some("http://c/img"));
+
+        let out = serde_json::to_value(&parsed).expect("serializes");
+        assert_eq!(out.get("coverUrl"), Some(&serde_json::json!("http://c/img")));
     }
 }

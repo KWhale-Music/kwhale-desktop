@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::{watch, Semaphore};
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 const MIN_RELIABLE_DURATION_SEC: i32 = 40;
 const DURATION_TOLERANCE_SEC: i32 = 30;
@@ -287,7 +288,7 @@ impl DownloadManager {
 
         let remote_id = track.remote_id.clone();
         let safe_id = sanitize_key(&remote_id);
-        let tmp_path = self.downloads_dir.join(format!("{safe_id}.part"));
+        let tmp_path = download_tmp_path(&self.downloads_dir, &safe_id);
 
         self.set_active_status(&remote_id, TrackDownloadStatus::Downloading { percent: 0 });
 
@@ -442,6 +443,12 @@ pub fn ext_for_mime(mime: Option<&str>) -> &'static str {
     }
 }
 
+/// Temporary download path unique per attempt, so a cancelled attempt can never unlink a
+/// newer attempt's in-progress file.
+fn download_tmp_path(dir: &Path, safe_id: &str) -> PathBuf {
+    dir.join(format!("{safe_id}.{}.part", Uuid::new_v4()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -452,5 +459,17 @@ mod tests {
         assert_eq!(ext_for_mime(Some("audio/mp4")), "m4a");
         assert_eq!(ext_for_mime(Some("audio/ogg")), "ogg");
         assert_eq!(ext_for_mime(None), "mp3");
+    }
+
+    #[test]
+    fn download_tmp_names_are_unique_per_attempt() {
+        let dir = Path::new("/tmp");
+        let a = download_tmp_path(dir, "track1");
+        let b = download_tmp_path(dir, "track1");
+        // Same track, different attempts -> distinct temp files (no cross-cancel corruption).
+        assert_ne!(a, b);
+        let a_str = a.to_string_lossy().into_owned();
+        assert!(a_str.contains("track1"));
+        assert!(a_str.ends_with(".part"));
     }
 }

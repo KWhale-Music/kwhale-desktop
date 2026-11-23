@@ -344,10 +344,10 @@ impl EventTracker {
                 }
                 match tracker.api.send_events(&batch).await {
                     Ok(()) => {
+                        let sent: std::collections::HashSet<String> =
+                            batch.iter().map(|e| e.id.clone()).collect();
                         let mut q = tracker.pending.lock().expect("pending lock");
-                        for _ in 0..batch.len().min(q.len()) {
-                            q.pop_front();
-                        }
+                        retain_unsent(&mut q, &sent);
                         drop(q);
                         tracker.persist_best_effort();
                     }
@@ -381,6 +381,16 @@ fn normalize_surface(raw: &str) -> &'static str {
         .unwrap_or("player")
 }
 
+/// Removes the successfully-sent events from the pending queue by identity. Matching on
+/// ids (rather than popping a fixed count) ensures events added or re-ordered while the
+/// send was in flight are never dropped.
+fn retain_unsent(
+    q: &mut VecDeque<crate::models::Event>,
+    sent_ids: &std::collections::HashSet<String>,
+) {
+    q.retain(|e| !sent_ids.contains(&e.id));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -390,5 +400,41 @@ mod tests {
         assert_eq!(normalize_surface("HOME"), "home");
         assert_eq!(normalize_surface("search"), "search");
         assert_eq!(normalize_surface("unknown_place"), "player");
+    }
+
+    fn ev(id: &str) -> crate::models::Event {
+        crate::models::Event {
+            id: id.to_string(),
+            r#type: "test".to_string(),
+            track_id: None,
+            playback_id: None,
+            context: None,
+            position_ms: None,
+            listened_ms: None,
+            track_duration_ms: None,
+            started_at: None,
+            ended_at: None,
+            timezone_offset_minutes: None,
+            surface: None,
+            session_id: None,
+            device_id: None,
+            query: None,
+            result_count: None,
+            clicked_position: None,
+            occurred_at: String::new(),
+        }
+    }
+
+    #[test]
+    fn retain_unsent_drops_only_sent_even_after_overflow_eviction() {
+        let mut q: VecDeque<crate::models::Event> = VecDeque::from([ev("A"), ev("B"), ev("C"), ev("D")]);
+        // Batch was cloned as [A, B]; a concurrent overflow then evicts A from the front.
+        q.pop_front();
+        let sent: std::collections::HashSet<String> =
+            [ev("A"), ev("B")].iter().map(|e| e.id.clone()).collect();
+        retain_unsent(&mut q, &sent);
+        let ids: Vec<String> = q.iter().map(|e| e.id.clone()).collect();
+        // Only the sent events are removed; C and D (never sent) must survive.
+        assert_eq!(ids, vec!["C".to_string(), "D".to_string()]);
     }
 }

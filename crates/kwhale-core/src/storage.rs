@@ -99,9 +99,24 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         fs::create_dir_all(parent)?;
     }
     let tmp = path.with_extension(format!("tmp.{}", Uuid::new_v4()));
-    fs::write(&tmp, bytes)?;
+    write_private(&tmp, bytes)?;
     fs::rename(&tmp, path)?;
     Ok(())
+}
+
+/// Writes a file with owner-only (0600) permissions so secrets (tokens, API keys)
+/// are never world-readable, even for an instant during the atomic rename.
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts.open(path)?;
+    f.write_all(bytes)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -620,6 +635,20 @@ fn evict_dir_lru(dir: &Path, max_bytes: u64) {
 mod tests {
     use super::*;
     use crate::models::User;
+
+    #[test]
+    fn write_atomic_creates_owner_only_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let p = dir.path().join("secret.json");
+        write_atomic(&p, b"{\"token\":\"s\"}").expect("write");
+        assert!(p.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&p).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600, "secrets must never be world-readable");
+        }
+    }
 
     #[test]
     fn settings_content_and_playback_cache_roundtrip() {
