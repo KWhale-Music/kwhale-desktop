@@ -174,11 +174,14 @@ async fn handle_connection(
     let mut written: u64 = 0;
     let mut stream = resp.bytes_stream();
     let mut clean_eof = true;
+    let mut cache_ok = true;
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(bytes) => {
                 if let Some(f) = cache_file.as_mut() {
-                    let _ = f.write_all(&bytes).await;
+                    if f.write_all(&bytes).await.is_err() {
+                        cache_ok = false;
+                    }
                 }
                 if writer.write_all(&bytes).await.is_err() {
                     clean_eof = false;
@@ -199,7 +202,7 @@ async fn handle_connection(
             let _ = f.flush().await;
             drop(f);
         }
-        if clean_eof && written == expected && written > 0 {
+        if can_commit(clean_eof, cache_ok, written, expected) {
             let _ = core.playback_cache.commit_temp_file(track_id, &tmp);
         } else {
             let _ = fs::remove_file(&tmp);
@@ -287,6 +290,13 @@ fn parse_range(raw: &str, total: u64) -> Option<(u64, u64)> {
     } else {
         None
     }
+}
+
+/// Decide whether the streamed body can be committed to the playback cache. `cache_ok`
+/// is false when any write to the cache file failed, so a truncated file is never
+/// committed even if the full body reached the client.
+fn can_commit(clean_eof: bool, cache_ok: bool, written: u64, expected: u64) -> bool {
+    clean_eof && cache_ok && written == expected && written > 0
 }
 
 fn should_cache_response(
@@ -447,5 +457,19 @@ mod tests {
             None
         );
         assert_eq!(should_cache_response(404, Some(100), None), None);
+    }
+
+    #[test]
+    fn commit_gate_requires_clean_full_writes() {
+        // Happy path: clean EOF, fully written, cache writes succeeded.
+        assert!(can_commit(true, true, 10, 10));
+        // A failed cache write must prevent committing (truncated file).
+        assert!(!can_commit(true, false, 10, 10));
+        // Client disconnect / stream error -> no commit.
+        assert!(!can_commit(false, true, 10, 10));
+        // Short body -> no commit.
+        assert!(!can_commit(true, true, 5, 10));
+        // Nothing written -> no commit.
+        assert!(!can_commit(true, true, 0, 0));
     }
 }

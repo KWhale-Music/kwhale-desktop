@@ -60,6 +60,16 @@ impl ApiConfig {
     }
 }
 
+/// Returns true when `target` shares the exact origin (scheme + host + port) of the
+/// configured base URL. Stricter than a host-only check: also rejects scheme downgrades
+/// (https -> http) and cross-port redirects.
+fn same_origin(base_normalized_url: &str, target: &Url) -> bool {
+    match Url::parse(base_normalized_url) {
+        Ok(base) => base.origin() == target.origin(),
+        Err(_) => false,
+    }
+}
+
 #[derive(Clone)]
 pub struct KwhaleApi {
     config: Arc<RwLock<ApiConfig>>,
@@ -70,31 +80,33 @@ pub struct KwhaleApi {
 
 impl KwhaleApi {
     pub fn new(config: ApiConfig, token_store: TokenStore) -> CoreResult<Self> {
-        let allowed_host = Arc::new(RwLock::new(config.base_host.clone()));
-        let host_guard = allowed_host.clone();
+        let config = Arc::new(RwLock::new(config));
+        let policy_config = config.clone();
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(60))
-            // Enforce single-origin even across redirects.
+            // Enforce single-origin (scheme + host + port) even across redirects. The
+            // allowlist reads the *live* config so `reconfigure` is honored, and the
+            // comparison is origin-based so https->http downgrades and cross-port hops
+            // are rejected (not just cross-host).
             .redirect(reqwest::redirect::Policy::custom(move |attempt| {
-                let allowed = host_guard.read().expect("host lock").clone();
                 if attempt.previous().len() >= 5 {
-                    attempt.error("too many redirects")
-                } else if attempt
-                    .url()
-                    .host_str()
-                    .map(|h| h.eq_ignore_ascii_case(&allowed))
-                    .unwrap_or(false)
-                {
+                    return attempt.error("too many redirects");
+                }
+                let base = policy_config
+                    .read()
+                    .expect("config lock")
+                    .normalized_base_url
+                    .clone();
+                if same_origin(&base, attempt.url()) {
                     attempt.follow()
                 } else {
                     attempt.stop()
                 }
             }))
             .build()?;
-        let _ = allowed_host;
         Ok(Self {
-            config: Arc::new(RwLock::new(config)),
+            config,
             client,
             token_store,
             refresh_lock: Arc::new(Mutex::new(())),
@@ -131,12 +143,11 @@ impl KwhaleApi {
     }
 
     fn verify_host(&self, url: &Url) -> CoreResult<()> {
-        let allowed = self.config().base_host;
-        let host = url.host_str().unwrap_or_default();
-        if !host.eq_ignore_ascii_case(&allowed) {
+        let cfg = self.config();
+        if !same_origin(&cfg.normalized_base_url, url) {
             return Err(CoreError::HostPolicyViolation {
-                host: host.to_string(),
-                allowed,
+                host: url.host_str().unwrap_or_default().to_string(),
+                allowed: cfg.base_host,
             });
         }
         Ok(())
@@ -1254,5 +1265,120 @@ mod tests {
         let res = api.refresh_session(None).await;
         assert!(res.is_none());
         assert!(store.load().is_some());
+    }
+
+    #[test]
+    fn same_origin_enforces_scheme_host_and_port() {
+        // Same origin -> follow.
+        assert!(same_origin(
+            "https://a.example/v1",
+            &Url::parse("https://a.example/other").unwrap()
+        ));
+        // Explicit vs implicit default port normalizes to the same origin.
+        assert!(same_origin(
+            "https://a.example/v1",
+            &Url::parse("https://a.example:443/other").unwrap()
+        ));
+        // Scheme downgrade (https -> http) must be rejected.
+        assert!(!same_origin(
+            "https://a.example/v1",
+            &Url::parse("http://a.example/other").unwrap()
+        ));
+        // Cross-port must be rejected.
+        assert!(!same_origin(
+            "https://a.example/v1",
+            &Url::parse("https://a.example:8443/other").unwrap()
+        ));
+        // Cross-host must be rejected.
+        assert!(!same_origin(
+            "https://a.example/v1",
+            &Url::parse("https://b.example/other").unwrap()
+        ));
+    }
+
+    #[test]
+    fn reconfigure_updates_allowed_origin() {
+        let cfg = ApiConfig::new("https://a.example", "0.1.0", "test", false).unwrap();
+        let api = KwhaleApi::new(cfg, TokenStore::in_memory(None)).unwrap();
+        assert!(api
+            .verify_host(&Url::parse("https://a.example/x").unwrap())
+            .is_ok());
+        assert!(api
+            .verify_host(&Url::parse("https://b.example/x").unwrap())
+            .is_err());
+
+        let cfg_b = ApiConfig::new("https://b.example", "0.1.0", "test", false).unwrap();
+        api.reconfigure(cfg_b).unwrap();
+        // The allowed origin must track reconfigure, not a stale snapshot.
+        assert!(api
+            .verify_host(&Url::parse("https://b.example/x").unwrap())
+            .is_ok());
+        assert!(api
+            .verify_host(&Url::parse("https://a.example/x").unwrap())
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn redirect_policy_follows_same_origin() {
+        let a = MockServer::start().await;
+        let hits = Arc::new(AtomicUsize::new(0));
+        let h = hits.clone();
+
+        let target = format!("{}/v1/me2", a.uri());
+        Mock::given(method("GET"))
+            .and(path("/v1/me"))
+            .respond_with(ResponseTemplate::new(302).insert_header("Location", target.as_str()))
+            .mount(&a)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/me2"))
+            .respond_with(move |_req: &wiremock::Request| {
+                h.fetch_add(1, Ordering::SeqCst);
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "id": "1", "displayName": "Atte", "avatar": null
+                }))
+            })
+            .mount(&a)
+            .await;
+
+        let cfg = ApiConfig::new(&a.uri(), "0.1.0", "test", true).unwrap();
+        let api = KwhaleApi::new(cfg, TokenStore::in_memory(None)).unwrap();
+        let res = api.me().await;
+        assert!(res.is_ok());
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn redirect_policy_blocks_cross_origin() {
+        let a = MockServer::start().await;
+        let b = MockServer::start().await;
+        let b_hits = Arc::new(AtomicUsize::new(0));
+        let bh = b_hits.clone();
+
+        let target = format!("{}/v1/me", b.uri());
+        Mock::given(method("GET"))
+            .and(path("/v1/me"))
+            .respond_with(ResponseTemplate::new(302).insert_header("Location", target.as_str()))
+            .mount(&a)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/me"))
+            .respond_with(move |_req: &wiremock::Request| {
+                bh.fetch_add(1, Ordering::SeqCst);
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "id": "1", "displayName": "Atte", "avatar": null
+                }))
+            })
+            .mount(&b)
+            .await;
+
+        let cfg = ApiConfig::new(&a.uri(), "0.1.0", "test", true).unwrap();
+        let api = KwhaleApi::new(cfg, TokenStore::in_memory(None)).unwrap();
+        let _ = api.me().await;
+        assert_eq!(
+            b_hits.load(Ordering::SeqCst),
+            0,
+            "cross-origin redirect must not be followed"
+        );
     }
 }

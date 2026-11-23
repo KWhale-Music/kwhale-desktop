@@ -4,6 +4,7 @@ use crate::events::EventTracker;
 use crate::models::{Album, Artist, HomeResponse, Mix, Playlist, SearchResponse, Track, User};
 use crate::network::{ApiConfig, KwhaleApi};
 use crate::reactions::TrackReactionStore;
+use crate::server_url::ServerUrl;
 use crate::storage::{
     AppPaths, ContentCache, ImageCache, PlaybackCache, SettingsStore, TokenStore,
 };
@@ -105,7 +106,11 @@ impl KwhaleCore {
             &client_version,
             &snap.device_id,
             snap.allow_insecure_http,
-        )?;
+        )
+        // Recover from a poisoned/invalid stored URL instead of refusing to start.
+        .or_else(|_| {
+            ApiConfig::new(ServerUrl::DEFAULT_PROD, &client_version, &snap.device_id, false)
+        })?;
         let api = KwhaleApi::new(config, token_store.clone())?;
         let cache = ContentCache::new(&paths);
         let image_cache = ImageCache::new(&paths);
@@ -144,16 +149,14 @@ impl KwhaleCore {
     }
 
     pub fn reconfigure_api(&self, new_base_url: &str, allow_insecure_http: bool) -> CoreResult<()> {
-        let snap = self.settings.update(|s| {
+        // Validate before persisting so an invalid URL is never stored (a persisted bad
+        // URL would otherwise brick the next launch).
+        let device_id = self.settings.snapshot().device_id;
+        let cfg = ApiConfig::new(new_base_url, &self.client_version, &device_id, allow_insecure_http)?;
+        self.settings.update(|s| {
             s.api_base_url = new_base_url.to_string();
             s.allow_insecure_http = allow_insecure_http;
         });
-        let cfg = ApiConfig::new(
-            &snap.api_base_url,
-            &self.client_version,
-            &snap.device_id,
-            snap.allow_insecure_http,
-        )?;
         self.api.reconfigure(cfg)?;
         Ok(())
     }
@@ -192,5 +195,37 @@ impl KwhaleCore {
 
     pub fn placeholder_svg(&self, seed: &str, dark: bool, show_initial: bool, size: u32) -> String {
         KwhaleCoverPalette::placeholder_svg(seed, dark, show_initial, size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reconfigure_rejects_invalid_url_without_persisting() {
+        let dir = tempfile::tempdir().unwrap();
+        let core = KwhaleCore::init_with_paths(AppPaths::for_base(dir.path()), "0.1.0").unwrap();
+        let before = core.settings.snapshot().api_base_url;
+
+        // Plain HTTP to a public host with insecure disallowed must be rejected.
+        let res = core.reconfigure_api("http://music.example.org", false);
+        assert!(res.is_err());
+        // Settings must be unchanged: a rejected URL is never persisted.
+        assert_eq!(core.settings.snapshot().api_base_url, before);
+    }
+
+    #[test]
+    fn init_recovers_from_poisoned_server_url() {
+        let dir = tempfile::tempdir().unwrap();
+        let core = KwhaleCore::init_with_paths(AppPaths::for_base(dir.path()), "0.1.0").unwrap();
+        // Simulate a poisoned stored URL reaching disk.
+        core.settings
+            .update(|s| s.api_base_url = "ftp://not-a-server".to_string());
+        drop(core);
+
+        // Re-init must not fail even though the stored URL is invalid.
+        let re = KwhaleCore::init_with_paths(AppPaths::for_base(dir.path()), "0.1.0");
+        assert!(re.is_ok(), "init must recover from an invalid stored URL");
     }
 }
