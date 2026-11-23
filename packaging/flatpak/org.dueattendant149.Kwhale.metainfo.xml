@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.dueattendant149.Kwhale</id>
+  <name>KWhale</name>
+  <summary>Self-hosted музыкальный клиент</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>
+      Нативный десктопный клиент для self-hosted музыкального сервера KWhale с двумя
+      встроенными интерфейсами: GTK4 / libadwaita (для GNOME) и Qt6 Quick / Kirigami (для KDE Plasma).
+    </p>
+    <ul>
+      <li>Агрегированный двухволновой поиск и персональные/AI миксы</li>
+      <li>Единая библиотека, управление плейлистами и офлайн-кэширование</li>
+      <li>Синхронизированные тексты песен (караоке) и интеграция с MPRIS2</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.dueattendant149.Kwhale.desktop</launchable>
+  <provides>
+    <binary>kwhale</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-11-23"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

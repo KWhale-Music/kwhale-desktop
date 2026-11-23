@@ -1,0 +1,14 @@
+[package]
+name = "kwhale-launcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "kwhale"
+path = "src/main.rs"
+
+[dependencies]
+kwhale-core = { path = "../kwhale-core" }
+zbus.workspace = true
+tokio.workspace = true

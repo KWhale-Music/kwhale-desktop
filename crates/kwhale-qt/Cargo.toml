@@ -1,0 +1,22 @@
+[package]
+name = "kwhale-qt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kwhale-core = { path = "../kwhale-core" }
+kwhale-audio = { path = "../kwhale-audio" }
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+[build-dependencies]
+cxx-qt-build.workspace = true

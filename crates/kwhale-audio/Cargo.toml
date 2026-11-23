@@ -1,0 +1,21 @@
+[package]
+name = "kwhale-audio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kwhale-core = { path = "../kwhale-core" }
+tokio.workspace = true
+tokio-util.workspace = true
+futures-util.workspace = true
+bytes.workspace = true
+gstreamer.workspace = true
+gstreamer-app.workspace = true
+gstreamer-pbutils.workspace = true
+reqwest.workspace = true
+zbus.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+rand = "0.9"

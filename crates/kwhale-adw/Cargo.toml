@@ -1,0 +1,16 @@
+[package]
+name = "kwhale-adw"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kwhale-core = { path = "../kwhale-core" }
+kwhale-audio = { path = "../kwhale-audio" }
+gtk4.workspace = true
+libadwaita.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true

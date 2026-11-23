@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=KWhale
+GenericName=Музыкальный плеер
+Comment=Нативный музыкальный клиент KWhale (libadwaita и Qt6)
+Exec=kwhale %u
+Icon=org.dueattendant149.Kwhale
+Terminal=false
+Categories=AudioVideo;Audio;Music;Player;
+MimeType=x-scheme-handler/kwhale;
+StartupNotify=true
+X-GNOME-UsesNotifications=true
