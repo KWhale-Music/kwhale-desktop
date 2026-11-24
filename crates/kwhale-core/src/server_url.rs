@@ -5,7 +5,7 @@ use url::Url;
 /// Examples:
 /// - `music.example.org` -> `https://music.example.org/v1`
 /// - `https://music.example.org/` -> `https://music.example.org/v1`
-/// - `http://192.168.1.229:19001` -> `http://192.168.1.229:19001/v1`
+/// - `http://192.168.1.100:19001` -> `http://192.168.1.100:19001/v1`
 pub struct ServerUrl;
 
 impl ServerUrl {
@@ -14,7 +14,7 @@ impl ServerUrl {
     pub const PRESETS: &'static [&'static str] = &[
         "https://music.dueattendant149.org/v1",
         "https://test.dueattendant149.org/v1",
-        "http://192.168.1.229:19001/v1",
+        "http://192.168.1.100:19001/v1",
         "http://127.0.0.1:19001/v1",
     ];
 
@@ -105,8 +105,8 @@ mod tests {
             Some("https://music.example.org/v1")
         );
         assert_eq!(
-            ServerUrl::normalize("http://192.168.1.229:19001/v1/", None).as_deref(),
-            Some("http://192.168.1.229:19001/v1")
+            ServerUrl::normalize("http://192.168.1.100:19001/v1/", None).as_deref(),
+            Some("http://192.168.1.100:19001/v1")
         );
     }
 
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn identifies_lan_vs_public_hosts() {
         assert!(ServerUrl::is_local_or_lan("http://127.0.0.1:19001/v1"));
-        assert!(ServerUrl::is_local_or_lan("http://192.168.1.229:19001/v1"));
+        assert!(ServerUrl::is_local_or_lan("http://192.168.1.100:19001/v1"));
         assert!(ServerUrl::is_local_or_lan("http://localhost:19001/v1"));
         assert!(!ServerUrl::is_local_or_lan("http://music.dueattendant149.org/v1"));
     }
