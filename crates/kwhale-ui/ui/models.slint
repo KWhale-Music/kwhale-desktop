@@ -1,0 +1,91 @@
+export struct ShelfItem {
+    id: string,
+    kind: string,
+    title: string,
+    subtitle: string,
+    cover: image,
+}
+
+export struct ArtistItem {
+    id: string,
+    name: string,
+    followers-text: string,
+    cover: image,
+}
+
+export struct MixChipItem {
+    id: string,
+    title: string,
+    subtitle: string,
+    kind: string,
+    active: bool,
+}
+
+export struct TrackItem {
+    id: string,
+    title: string,
+    artist: string,
+    album: string,
+    duration: string,
+    cover: image,
+    active: bool,
+    liked: bool,
+    disliked: bool,
+    downloaded: bool,
+    explicit: bool,
+}
+
+export struct SidebarPlaylistItem {
+    id: string,
+    title: string,
+    count-text: string,
+    cover: image,
+    can-edit: bool,
+}
+
+export struct AccentOption {
+    id: int,
+    name: string,
+    swatch: color,
+    active: bool,
+}
+
+export struct LyricLineItem {
+    text: string,
+    active: bool,
+    start-ms: int,
+}
+
+export struct DownloadItem {
+    id: string,
+    title: string,
+    artist: string,
+    status-text: string,
+    detail-text: string,
+    progress: float,
+    active: bool,
+    failed: bool,
+    cover: image,
+}
+
+export struct GenreChip {
+    id: string,
+    name: string,
+}
+
+export struct TrackMenuInfo {
+    visible: bool,
+    track-id: string,
+    title: string,
+    artist: string,
+    album: string,
+    album-id: string,
+    artist-id: string,
+    cover: image,
+    liked: bool,
+    disliked: bool,
+    downloaded: bool,
+    in-editable-playlist: bool,
+    details-text: string,
+    playlist-picker-open: bool,
+}

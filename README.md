@@ -1,10 +1,9 @@
 # KWhale Desktop (`org.dueattendant149.Kwhale`)
 
-Нативный десктопный клиент для self-hosted музыкального сервера **KWhale** (`/v1`), поставляемый в **едином All-in-One Flatpak пакете** с двумя нативными графическими движками и общим Rust-ядром:
+Нативный кроссплатформенный десктопный клиент для self-hosted музыкального сервера **KWhale** (`/v1`), построенный на едином Rust-ядре и интерфейсе **Material You 3** (`kwhale-ui` / Slint), адаптирующемся под окружение рабочего стола (**GNOME**, **KDE Plasma**, нейтральные WM) и **Windows**:
 
-1. **`kwhale-adw`** — нативный интерфейс для **GNOME** и нейтральных окружений на базе **GTK 4.18 + libadwaita 1.7** (`gtk4-rs` / `libadwaita-rs`).
-2. **`kwhale-qt`** — нативный интерфейс для **KDE Plasma / LXQt** на базе **Qt 6.11 Quick / QML + Kirigami** (`cxx-qt`).
-3. **`kwhale` (`kwhale-launcher`)** — единая точка входа (`Exec=kwhale %u`), автоматически выбирающая нативный движок по `XDG_CURRENT_DESKTOP` (с возможностью переопределения через `--ui=adw|qt|auto`, переменную `KWHALE_UI` или переключатель в настройках) и пересылающая `kwhale://` deep-link ссылки в уже запущенный экземпляр по D-Bus (`org.dueattendant149.Kwhale`).
+1. **`kwhale-ui`** — единый интерфейс в стиле Material You 3 (тональные поверхности, 129 акцентов + системный акцент DE/ОС, шрифты `VK Sans Display` / `VK Sans Text`, адаптивный верхний бар и метрики контролов под GNOME / KDE / Windows).
+2. **`kwhale` (`kwhale-launcher`)** — единая точка входа (`Exec=kwhale %u`), запускающая `kwhale-ui` (с поддержкой `--ui=slint|auto`) и пересылающая `kwhale://` deep-link ссылки в уже запущенный экземпляр по D-Bus (`org.dueattendant149.Kwhale`).
 
 ## Структура Workspace
 
@@ -15,11 +14,10 @@ kwhale-desktop/
 │   ├── fonts/            # Шрифты VK Sans Display и VK Sans Text
 │   └── icons/            # Иконки приложения (64..512px)
 ├── crates/
-│   ├── kwhale-core/      # REST API /v1, single-flight refresh, кэши, реакции, загрузки, 129 акцентов
+│   ├── kwhale-core/      # REST API /v1, single-flight refresh, кэши, реакции, загрузки, 129 акцентов + PlatformStyle
 │   ├── kwhale-audio/     # GStreamer playbin3, localhost Range/cache прокси, prefetcher (5 треков), MPRIS2
-│   ├── kwhale-adw/       # Нативный GTK4 + libadwaita десктопный интерфейс
-│   ├── kwhale-qt/        # Нативный Qt6 Quick / QML + Kirigami десктопный интерфейс (cxx-qt)
-│   └── kwhale-launcher/  # Автовыбор UI-бэкенда и D-Bus активация
+│   ├── kwhale-ui/        # Единый Adaptive Material You 3 интерфейс на Slint (Linux DE + Windows)
+│   └── kwhale-launcher/  # Точка входа и D-Bus активация
 └── packaging/flatpak/
     ├── org.dueattendant149.Kwhale.yml
     ├── org.dueattendant149.Kwhale.desktop
@@ -37,20 +35,14 @@ kwhale-desktop/
 
 Скрипт:
 1. Подготавливает чистый snapshot исходников и выполняет `cargo vendor --locked`.
-2. Собирает `libsass`, `sassc`, `gtk-4.18.6`, `libadwaita-1.7.12` и Rust-бинарники `kwhale`, `kwhale-adw`, `kwhale-qt` поверх `org.kde.Platform//6.11`.
+2. Собирает Rust-бинарники `kwhale` и `kwhale-ui` поверх `org.kde.Platform//6.11`.
 3. Экспортирует однофайловый бандл `target/kwhale-desktop.flatpak` и устанавливает его в профиль пользователя (`flatpak install --user`).
 
 ## Запуск
 
 ```bash
-# Автовыбор движка по текущему окружению рабочего стола
+# Запуск Adaptive Material You 3 клиента (автоопределение GNOME / KDE / Windows)
 flatpak run org.dueattendant149.Kwhale
-
-# Принудительный запуск GTK4 + libadwaita
-flatpak run org.dueattendant149.Kwhale --ui=adw
-
-# Принудительный запуск Qt6 Quick + Kirigami
-flatpak run org.dueattendant149.Kwhale --ui=qt
 
 # Открытие deep-link ссылки
 flatpak run org.dueattendant149.Kwhale kwhale://track/<id>

@@ -15,6 +15,7 @@ finish-args:
   - --device=dri
   - --talk-name=org.freedesktop.Notifications
   - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.StatusNotifierWatcher
   - --own-name=org.mpris.MediaPlayer2.kwhale
   - --own-name=org.mpris.MediaPlayer2.kwhale.*
   - --own-name=org.dueattendant149.Kwhale
@@ -27,83 +28,10 @@ cleanup:
   - /share/gtk-doc
   - /share/man
   - /share/vala
-  - /bin/sassc
-  - /bin/gtk4-builder-tool
-  - /bin/gtk4-encode-symbolic-svg
-  - /bin/gtk4-launch
-  - /bin/gtk4-path-tool
-  - /bin/gtk4-query-settings
-  - /bin/gtk4-rendernode-tool
-  - /bin/gtk4-update-icon-cache
-  - /bin/adwaita-1-demo
   - '*.la'
   - '*.a'
 
 modules:
-  - name: libsass
-    buildsystem: simple
-    build-commands:
-      - LIBSASS_VERSION=3.6.6 autoreconf -fi
-      - ./configure --prefix=/app --libdir=/app/lib --disable-static
-      - make -j${FLATPAK_BUILDER_N_JOBS:-6}
-      - make install
-    sources:
-      - type: archive
-        url: https://github.com/sass/libsass/archive/refs/tags/3.6.6.tar.gz
-        sha256: 11f0bb3709a4f20285507419d7618f3877a425c0131ea8df40fe6196129df15d
-
-  - name: sassc
-    buildsystem: simple
-    build-commands:
-      - SASSC_VERSION=3.6.2 autoreconf -fi
-      - ./configure --prefix=/app --libdir=/app/lib --with-libsass=/app
-      - make -j${FLATPAK_BUILDER_N_JOBS:-6}
-      - make install
-    sources:
-      - type: archive
-        url: https://github.com/sass/sassc/archive/refs/tags/3.6.2.tar.gz
-        sha256: 608dc9002b45a91d11ed59e352469ecc05e4f58fc1259fc9a9f5b8f0f8348a03
-
-  - name: gtk4
-    buildsystem: meson
-    config-opts:
-      - --libdir=lib
-      - -Dbuildtype=release
-      - -Dintrospection=disabled
-      - -Dmedia-gstreamer=disabled
-      - -Dprint-cups=disabled
-      - -Dprint-cpdb=disabled
-      - -Dcloudproviders=disabled
-      - -Dtracker=disabled
-      - -Dcolord=disabled
-      - -Daccesskit=disabled
-      - -Dsysprof=disabled
-      - -Dbuild-demos=false
-      - -Dbuild-testsuite=false
-      - -Dbuild-examples=false
-      - -Dbuild-tests=false
-      - -Ddocumentation=false
-      - -Dman-pages=false
-    sources:
-      - type: archive
-        url: https://gitlab.gnome.org/GNOME/gtk/-/archive/4.18.6/gtk-4.18.6.tar.gz
-        sha256: d87b48289ad89caa758e5c4909fc649501226937cc581c03baa185e3a62afcea
-
-  - name: libadwaita
-    buildsystem: meson
-    config-opts:
-      - --libdir=lib
-      - -Dbuildtype=release
-      - -Dintrospection=disabled
-      - -Dvapi=false
-      - -Dtests=false
-      - -Dexamples=false
-      - -Ddocumentation=false
-    sources:
-      - type: archive
-        url: https://gitlab.gnome.org/GNOME/libadwaita/-/archive/1.7.12/libadwaita-1.7.12.tar.gz
-        sha256: 96a67f465c7759d7261caac733b4cda643e4e256fd40537df7c3ce2533423287
-
   - name: kwhale
     buildsystem: simple
     build-options:
@@ -111,10 +39,9 @@ modules:
       env:
         CARGO_HOME: /run/build/kwhale/.cargo
     build-commands:
-      - cargo build --offline --release --bin kwhale --bin kwhale-adw --bin kwhale-qt -j6
+      - cargo build --offline --release --bin kwhale --bin kwhale-ui -j6
       - install -Dm755 target/release/kwhale /app/bin/kwhale
-      - install -Dm755 target/release/kwhale-adw /app/bin/kwhale-adw
-      - install -Dm755 target/release/kwhale-qt /app/bin/kwhale-qt
+      - install -Dm755 target/release/kwhale-ui /app/bin/kwhale-ui
       - install -Dm644 packaging/flatpak/org.dueattendant149.Kwhale.desktop /app/share/applications/org.dueattendant149.Kwhale.desktop
       - install -Dm644 packaging/flatpak/org.dueattendant149.Kwhale.metainfo.xml /app/share/metainfo/org.dueattendant149.Kwhale.metainfo.xml
       - install -Dm644 assets/icons/kwhale-64.png /app/share/icons/hicolor/64x64/apps/org.dueattendant149.Kwhale.png

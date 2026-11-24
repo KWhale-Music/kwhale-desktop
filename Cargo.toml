@@ -3,10 +3,8 @@ resolver = "2"
 members = [
     "crates/kwhale-core",
     "crates/kwhale-audio",
-    "crates/kwhale-adw",
-    "crates/kwhale-qt",
-    "crates/kwhale-launcher",
     "crates/kwhale-ui",
+    "crates/kwhale-launcher",
 ]
 
 [workspace.package]

@@ -1,0 +1,264 @@
+import { Theme } from "tokens.slint";
+import { Icon } from "icons.slint";
+
+/// Desktop floating mini-player widget modeled 1:1 after Android `PlayerWidget.kt`:
+/// squircle album art, cover-palette atmospheric gradient backdrop, crisp title,
+/// cover-tinted artist subtitle, queue shortcut, and generous Prev / Play-Pause / Next controls.
+export component PlayerWidgetWindow inherits Window {
+    title: "KWhale — Виджет";
+    preferred-width: 392px;
+    preferred-height: 132px;
+    min-width: 300px;
+    min-height: 112px;
+    no-frame: true;
+    always-on-top: true;
+    background: Theme.widget-surface;
+    default-font-family: Theme.text-font;
+
+    in property <bool> has-track: false;
+    in property <string> track-title: "KWhale";
+    in property <string> track-artist: "Нет активного трека";
+    in property <image> cover;
+    in property <image> backdrop;
+    in property <color> artist-color: Theme.overlay-fg-muted;
+    in property <bool> playing: false;
+
+    callback open-app();
+    callback open-queue();
+    callback prev-track();
+    callback toggle-play();
+    callback next-track();
+    callback hide-widget();
+    callback start-drag();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 24px;
+        background: Theme.widget-surface;
+        border-width: 1px;
+        border-color: Theme.overlay-border;
+        clip: true;
+
+        Image {
+            width: 100%;
+            height: 100%;
+            source: root.backdrop;
+            image-fit: fill;
+        }
+
+        // Background drag / click-to-open area
+        card-ta := TouchArea {
+            property <length> press-x;
+            property <length> press-y;
+            property <bool> dragging: false;
+
+            pointer-event(ev) => {
+                if ev.kind == PointerEventKind.down {
+                    self.press-x = self.mouse-x;
+                    self.press-y = self.mouse-y;
+                    self.dragging = false;
+                } else if ev.kind == PointerEventKind.up {
+                    if !self.dragging {
+                        root.open-app();
+                    }
+                    self.dragging = false;
+                }
+            }
+            moved => {
+                if self.pressed && !self.dragging {
+                    if abs(self.mouse-x - self.press-x) > 5px || abs(self.mouse-y - self.press-y) > 5px {
+                        self.dragging = true;
+                        root.start-drag();
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding: 12px;
+            spacing: 12px;
+
+            // Left: Squircle cover artwork (or deep note tile when idle)
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 96px;
+                    height: 96px;
+                    border-radius: 16px;
+                    background: Theme.widget-placeholder;
+                    clip: true;
+
+                    if root.has-track: Image {
+                        width: 100%;
+                        height: 100%;
+                        source: root.cover;
+                        image-fit: ImageFit.cover;
+                    }
+                    if !root.has-track: Icon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        name: "wave";
+                        icon-size: 36px;
+                        icon-color: root.artist-color;
+                    }
+                }
+            }
+
+            // Right: Track meta + queue/window shortcuts + transport controls
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 4px;
+
+                HorizontalLayout {
+                    width: 100%;
+                    alignment: start;
+                    spacing: 4px;
+
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        padding-top: 2px;
+                        spacing: 2px;
+
+                        Text {
+                            text: root.track-title != "" ? root.track-title : "KWhale";
+                            font-family: Theme.display-font;
+                            font-size: 16.5px;
+                            font-weight: 700;
+                            color: Theme.overlay-fg;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.track-artist != "" ? root.track-artist : "Нет активного трека";
+                            font-family: Theme.text-font;
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: root.artist-color;
+                            overflow: elide;
+                        }
+                    }
+
+                    // Top-right shortcuts: Queue + Expand + Hide widget
+                    HorizontalLayout {
+                        spacing: 4px;
+                        alignment: start;
+
+                        Rectangle {
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 15px;
+                            background: q-ta.pressed ? Theme.overlay-surface-pressed : (q-ta.has-hover ? Theme.overlay-surface-hover : transparent);
+                            animate background { duration: 120ms; }
+                            Icon {
+                                x: 5px;
+                                y: 5px;
+                                name: "queue-music";
+                                icon-size: 20px;
+                                icon-color: Theme.overlay-fg;
+                            }
+                            q-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.open-queue(); }
+                            }
+                        }
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 14px;
+                            background: exp-ta.pressed ? Theme.overlay-surface-pressed : (exp-ta.has-hover ? Theme.overlay-surface-hover : transparent);
+                            opacity: card-ta.has-hover || exp-ta.has-hover || cls-ta.has-hover ? 1.0 : 0.72;
+                            animate background { duration: 120ms; }
+                            animate opacity { duration: 120ms; }
+                            Icon {
+                                x: 6px;
+                                y: 6px;
+                                name: "expand";
+                                icon-size: 16px;
+                                icon-color: Theme.overlay-fg-muted;
+                            }
+                            exp-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.open-app(); }
+                            }
+                        }
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 14px;
+                            background: cls-ta.pressed ? Theme.overlay-surface-pressed : (cls-ta.has-hover ? Theme.overlay-surface-hover : transparent);
+                            opacity: card-ta.has-hover || exp-ta.has-hover || cls-ta.has-hover ? 1.0 : 0.72;
+                            animate background { duration: 120ms; }
+                            animate opacity { duration: 120ms; }
+                            Icon {
+                                x: 6px;
+                                y: 6px;
+                                name: "close";
+                                icon-size: 15px;
+                                icon-color: Theme.overlay-fg-muted;
+                            }
+                            cls-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.hide-widget(); }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { vertical-stretch: 1; }
+
+                // Transport buttons centered along bottom right matching Android PlayerWidget
+                HorizontalLayout {
+                    width: 100%;
+                    alignment: center;
+                    spacing: 20px;
+
+                    Rectangle {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 21px;
+                        background: p-ta.pressed ? Theme.overlay-surface-pressed : (p-ta.has-hover ? Theme.overlay-surface-hover : transparent);
+                        animate background { duration: 120ms; }
+                        Icon {
+                            x: 9px;
+                            y: 9px;
+                            name: "prev";
+                            icon-size: 24px;
+                            icon-color: Theme.overlay-fg;
+                        }
+                        p-ta := TouchArea { mouse-cursor: pointer; clicked => { root.prev-track(); } }
+                    }
+                    Rectangle {
+                        width: 46px;
+                        height: 46px;
+                        border-radius: 23px;
+                        background: pp-ta.pressed ? Theme.overlay-surface-pressed : (pp-ta.has-hover ? Theme.overlay-surface-hover : Theme.overlay-surface);
+                        animate background { duration: 120ms; }
+                        Icon {
+                            x: 7px;
+                            y: 7px;
+                            name: root.playing ? "pause" : "play";
+                            icon-size: 32px;
+                            icon-color: Theme.overlay-fg;
+                        }
+                        pp-ta := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-play(); } }
+                    }
+                    Rectangle {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 21px;
+                        background: n-ta.pressed ? Theme.overlay-surface-pressed : (n-ta.has-hover ? Theme.overlay-surface-hover : transparent);
+                        animate background { duration: 120ms; }
+                        Icon {
+                            x: 9px;
+                            y: 9px;
+                            name: "next";
+                            icon-size: 24px;
+                            icon-color: Theme.overlay-fg;
+                        }
+                        n-ta := TouchArea { mouse-cursor: pointer; clicked => { root.next-track(); } }
+                    }
+                }
+            }
+        }
+    }
+}

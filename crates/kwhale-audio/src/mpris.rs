@@ -1,9 +1,11 @@
-use crate::engine::AudioEngine;
-use kwhale_core::{KwhaleCore, PlaybackState, RepeatMode};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tracing::warn;
-use zbus::{fdo, interface, ObjectPath, Variant};
+#[cfg(target_os = "linux")]
+mod linux {
+    use crate::engine::AudioEngine;
+    use kwhale_core::{KwhaleCore, PlaybackState, RepeatMode};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use tracing::warn;
+    use zbus::{fdo, interface, ObjectPath, Variant};
 
 struct MprisRoot {
     raise_cb: Arc<dyn Fn() + Send + Sync>,
@@ -362,4 +364,23 @@ pub fn spawn_single_instance_dbus(
             }
         }
     });
+}
+}
+
+#[cfg(target_os = "linux")]
+pub use linux::{spawn_mpris, spawn_single_instance_dbus};
+
+#[cfg(not(target_os = "linux"))]
+pub fn spawn_mpris(
+    _core: std::sync::Arc<kwhale_core::KwhaleCore>,
+    _engine: crate::engine::AudioEngine,
+    _raise_cb: std::sync::Arc<dyn Fn() + Send + Sync>,
+) {
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn spawn_single_instance_dbus(
+    _raise_cb: std::sync::Arc<dyn Fn() + Send + Sync>,
+    _open_uri_cb: std::sync::Arc<dyn Fn(String) + Send + Sync>,
+) {
 }

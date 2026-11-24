@@ -7,8 +7,8 @@
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>
-      Нативный десктопный клиент для self-hosted музыкального сервера KWhale с двумя
-      встроенными интерфейсами: GTK4 / libadwaita (для GNOME) и Qt6 Quick / Kirigami (для KDE Plasma).
+      Нативный десктопный клиент для self-hosted музыкального сервера KWhale с единым
+      адаптивным интерфейсом Material You 3 (для GNOME, KDE Plasma и Windows).
     </p>
     <ul>
       <li>Агрегированный двухволновой поиск и персональные/AI миксы</li>

@@ -29,5 +29,5 @@ pub use storage::{
 };
 pub use theme::{
     accent_by_id, accent_families, AccentFamily, KwhaleAccent, KwhaleCoverPalette, KwhalePalette,
-    Rgb, ThemeMode, UiBackend, ALL_ACCENTS,
+    PlatformStyle, Rgb, ThemeMode, UiBackend, ALL_ACCENTS,
 };

@@ -1,6 +1,7 @@
 #![allow(clippy::collapsible_if)]
 
 use kwhale_core::{AppPaths, SettingsStore, UiBackend};
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -9,7 +10,7 @@ pub fn detect_backend(
     cli_ui: Option<UiBackend>,
     env_ui: Option<&str>,
     settings_ui: UiBackend,
-    xdg_desktop: Option<&str>,
+    _xdg_desktop: Option<&str>,
 ) -> UiBackend {
     if let Some(ui) = cli_ui {
         if ui != UiBackend::Auto {
@@ -25,12 +26,23 @@ pub fn detect_backend(
     if settings_ui != UiBackend::Auto {
         return settings_ui;
     }
-    let desktop = xdg_desktop.unwrap_or_default().to_ascii_uppercase();
-    if desktop.contains("KDE") || desktop.contains("PLASMA") || desktop.contains("LXQT") {
-        UiBackend::Qt
-    } else {
-        // GNOME and neutral desktops default to libadwaita per plan.
-        UiBackend::Adw
+    UiBackend::Slint
+}
+
+fn sibling_bin_exists(name: &str) -> bool {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            return dir.join(name).exists();
+        }
+    }
+    false
+}
+
+pub fn resolve_target_bin(chosen: UiBackend, has_sibling: impl Fn(&str) -> bool) -> &'static str {
+    match chosen {
+        UiBackend::Qt if has_sibling("kwhale-qt") => "kwhale-qt",
+        UiBackend::Adw if has_sibling("kwhale-adw") => "kwhale-adw",
+        _ => "kwhale-ui",
     }
 }
 
@@ -93,6 +105,7 @@ async fn try_forward_to_running_instance(deep_links: &[String]) -> bool {
 
 fn main() {
     let mut cli_ui: Option<UiBackend> = None;
+    let mut screenshot_mode = false;
     let mut pass_args: Vec<String> = Vec::new();
     let mut deep_links: Vec<String> = Vec::new();
 
@@ -100,7 +113,7 @@ fn main() {
     while let Some(arg) = args.next() {
         if arg == "--help" || arg == "-h" {
             println!(
-                "KWhale Desktop Launcher\n\nИспользование:\n  kwhale [--ui=auto|adw|qt] [kwhale://...]\n"
+                "KWhale Desktop Launcher\n\nИспользование:\n  kwhale [--ui=auto|slint|adw|qt] [--widget] [kwhale://...]\n"
             );
             return;
         } else if arg == "--version" || arg == "-V" {
@@ -113,6 +126,9 @@ fn main() {
                 cli_ui = Some(UiBackend::from_str_lossy(&val));
             }
         } else {
+            if arg == "--screenshot" || arg.starts_with("--screenshot=") {
+                screenshot_mode = true;
+            }
             if arg.starts_with("kwhale://") {
                 deep_links.push(arg.clone());
             }
@@ -120,9 +136,9 @@ fn main() {
         }
     }
 
-    // If an instance is already running and no explicit --ui switch was requested,
+    // If an instance is already running and no explicit --ui / --screenshot switch was requested,
     // forward deep links / raise the existing window over D-Bus.
-    if cli_ui.is_none() {
+    if cli_ui.is_none() && !screenshot_mode {
         if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -143,14 +159,21 @@ fn main() {
         settings.ui_backend,
         xdg_desktop.as_deref(),
     );
-    let target_bin = match chosen {
-        UiBackend::Qt => "kwhale-qt",
-        UiBackend::Adw | UiBackend::Auto => "kwhale-adw",
-    };
+    let target_bin = resolve_target_bin(chosen, sibling_bin_exists);
 
     let exe = find_sibling_bin(target_bin);
-    let err = Command::new(&exe).args(&pass_args).exec();
-    eprintln!("Не удалось запустить {}: {err}", exe.display());
+    #[cfg(unix)]
+    {
+        let err = Command::new(&exe).args(&pass_args).exec();
+        eprintln!("Не удалось запустить {}: {err}", exe.display());
+    }
+    #[cfg(not(unix))]
+    {
+        match Command::new(&exe).args(&pass_args).status() {
+            Ok(st) => std::process::exit(st.code().unwrap_or(0)),
+            Err(err) => eprintln!("Не удалось запустить {}: {err}", exe.display()),
+        }
+    }
     std::process::exit(1);
 }
 
@@ -180,22 +203,31 @@ mod tests {
             detect_backend(None, None, UiBackend::Qt, Some("GNOME")),
             UiBackend::Qt
         );
-        // 4. XDG_CURRENT_DESKTOP maps KDE/Plasma/LXQt -> Qt, GNOME & neutral -> Adw
+        // 4. Auto defaults to unified Slint Adaptive UI on all desktops
         assert_eq!(
             detect_backend(None, None, UiBackend::Auto, Some("KDE")),
-            UiBackend::Qt
+            UiBackend::Slint
         );
         assert_eq!(
             detect_backend(None, None, UiBackend::Auto, Some("ubuntu:GNOME")),
-            UiBackend::Adw
+            UiBackend::Slint
         );
         assert_eq!(
             detect_backend(None, None, UiBackend::Auto, Some("sway")),
-            UiBackend::Adw
+            UiBackend::Slint
         );
         assert_eq!(
             detect_backend(None, None, UiBackend::Auto, None),
-            UiBackend::Adw
+            UiBackend::Slint
         );
+    }
+
+    #[test]
+    fn falls_back_to_kwhale_ui_when_legacy_bin_missing() {
+        // Simulates old persisted settings ("qt" / "adw") running in a unified kwhale-ui install
+        assert_eq!(resolve_target_bin(UiBackend::Qt, |_| false), "kwhale-ui");
+        assert_eq!(resolve_target_bin(UiBackend::Adw, |_| false), "kwhale-ui");
+        assert_eq!(resolve_target_bin(UiBackend::Slint, |_| false), "kwhale-ui");
+        assert_eq!(resolve_target_bin(UiBackend::Qt, |b| b == "kwhale-qt"), "kwhale-qt");
     }
 }

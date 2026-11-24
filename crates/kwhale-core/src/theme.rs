@@ -44,6 +44,7 @@ impl ThemeMode {
 pub enum UiBackend {
     #[default]
     Auto,
+    Slint,
     Adw,
     Qt,
 }
@@ -52,6 +53,7 @@ impl UiBackend {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
+            Self::Slint => "slint",
             Self::Adw => "adw",
             Self::Qt => "qt",
         }
@@ -59,9 +61,64 @@ impl UiBackend {
 
     pub fn from_str_lossy(s: &str) -> Self {
         match s.trim().to_ascii_lowercase().as_str() {
+            "slint" | "ui" | "material" => Self::Slint,
             "adw" | "adwaita" | "gtk" | "gtk4" => Self::Adw,
             "qt" | "qt6" | "kde" | "kirigami" => Self::Qt,
             _ => Self::Auto,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PlatformStyle {
+    #[default]
+    Auto,
+    Gnome,
+    Kde,
+    Windows,
+}
+
+impl PlatformStyle {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Gnome => "gnome",
+            Self::Kde => "kde",
+            Self::Windows => "windows",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "Авто",
+            Self::Gnome => "GNOME",
+            Self::Kde => "KDE",
+            Self::Windows => "Windows",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "gnome" | "adw" | "gtk" => Self::Gnome,
+            "kde" | "plasma" | "lxqt" | "qt" => Self::Kde,
+            "windows" | "win" | "win11" | "fluent" => Self::Windows,
+            _ => Self::Auto,
+        }
+    }
+
+    pub fn resolve(self, xdg_desktop: Option<&str>) -> Self {
+        if self != Self::Auto {
+            return self;
+        }
+        if cfg!(target_os = "windows") {
+            return Self::Windows;
+        }
+        let d = xdg_desktop.unwrap_or_default().to_ascii_uppercase();
+        if d.contains("KDE") || d.contains("PLASMA") || d.contains("LXQT") {
+            Self::Kde
+        } else {
+            Self::Gnome
         }
     }
 }
@@ -115,8 +172,9 @@ impl Rgb {
     }
 
     pub fn on_color(self) -> Self {
-        if self.luminance() > 0.52 {
-            Self::from_u32(0x0B0B0B)
+        // WCAG relative luminance crossover for readable dark vs light foregrounds.
+        if self.luminance() > 0.24 {
+            Self::from_u32(0x141229)
         } else {
             Self::from_u32(0xFFFFFF)
         }
@@ -412,31 +470,56 @@ impl KwhalePalette {
     }
 
     fn dark(accent: Rgb, amoled: bool) -> Self {
-        let surface = Rgb::from_u32(if amoled { 0x000000 } else { 0x121212 });
-        let container_lowest = Rgb::from_u32(if amoled { 0x000000 } else { 0x0D0D0D });
-        let container_low = Rgb::from_u32(if amoled { 0x080808 } else { 0x1A1A1A });
-        let container = Rgb::from_u32(if amoled { 0x0D0D0D } else { 0x1E1E1E });
-        let container_high = Rgb::from_u32(if amoled { 0x151515 } else { 0x2A2A2A });
-        let container_highest = Rgb::from_u32(if amoled { 0x1D1D1D } else { 0x353535 });
+        let tint_base = Rgb::from_u32(0x111119);
+        let surface = if amoled {
+            Rgb::from_u32(0x000000)
+        } else {
+            tint_base.blend(accent, 0.04)
+        };
+        let container_lowest = if amoled {
+            Rgb::from_u32(0x000000)
+        } else {
+            Rgb::from_u32(0x0C0C13).blend(accent, 0.03)
+        };
+        let container_low = if amoled {
+            Rgb::from_u32(0x09090D).blend(accent, 0.03)
+        } else {
+            Rgb::from_u32(0x161621).blend(accent, 0.05)
+        };
+        let container = if amoled {
+            Rgb::from_u32(0x0F0F15).blend(accent, 0.04)
+        } else {
+            Rgb::from_u32(0x1C1C2A).blend(accent, 0.07)
+        };
+        let container_high = if amoled {
+            Rgb::from_u32(0x171720).blend(accent, 0.05)
+        } else {
+            Rgb::from_u32(0x252536).blend(accent, 0.09)
+        };
+        let container_highest = if amoled {
+            Rgb::from_u32(0x20202C).blend(accent, 0.06)
+        } else {
+            Rgb::from_u32(0x303044).blend(accent, 0.11)
+        };
 
         let white = Rgb::from_u32(0xFFFFFF);
-        let primary = if accent.luminance() < 0.55 {
-            accent.blend(white, 0.45)
+        let primary = if accent.luminance() < 0.42 {
+            accent.blend(white, 0.36)
         } else {
             accent
         };
         let on_primary = primary.on_color();
-        let primary_container = container.blend(accent, 0.30);
+        let primary_container = container.blend(accent, 0.28);
         let on_primary_container = Rgb::from_u32(if primary_container.luminance() > 0.48 {
-            0x071018
+            0x0B0B14
         } else {
-            0xE8F1FF
+            0xEFEBFD
         });
         let secondary_container = container.blend(accent, 0.16);
         let on_secondary_container = Rgb::from_u32(if secondary_container.luminance() > 0.48 {
-            0x071018
+            0x0B0B14
         } else {
-            0xDCE7F5
+            0xDDD8F2
         });
 
         Self {
@@ -454,34 +537,34 @@ impl KwhalePalette {
             surface_container: container,
             surface_container_high: container_high,
             surface_container_highest: container_highest,
-            on_surface: Rgb::from_u32(0xE6E1E5),
-            on_surface_variant: Rgb::from_u32(0xCAC4D0),
-            outline: Rgb::from_u32(0x938F99),
-            outline_variant: Rgb::from_u32(0x49454F),
+            on_surface: Rgb::from_u32(0xEEEAF6),
+            on_surface_variant: Rgb::from_u32(0xABA7BA),
+            outline: Rgb::from_u32(0x7B778D),
+            outline_variant: Rgb::from_u32(0x2E2D40).blend(accent, 0.10),
             error: Rgb::from_u32(0xFFB4AB),
             error_container: Rgb::from_u32(0x93000A),
         }
     }
 
     fn light(accent: Rgb) -> Self {
-        let surface = Rgb::from_u32(0xF7F7FA);
-        let black = Rgb::from_u32(0x000000);
         let white = Rgb::from_u32(0xFFFFFF);
+        let black = Rgb::from_u32(0x000000);
+        let surface = Rgb::from_u32(0xF7F7FC).blend(accent, 0.02);
         let primary = if accent.luminance() > 0.28 {
-            accent.blend(black, 0.42)
+            accent.blend(black, 0.38)
         } else {
             accent
         };
         let on_primary = primary.on_color();
-        let primary_container = white.blend(accent, 0.18);
+        let primary_container = white.blend(accent, 0.20);
         let on_primary_container = Rgb::from_u32(if primary_container.luminance() > 0.48 {
-            0x071018
+            0x101324
         } else {
             0x001D36
         });
-        let secondary_container = surface.blend(accent, 0.12);
+        let secondary_container = surface.blend(accent, 0.14);
         let on_secondary_container = Rgb::from_u32(if secondary_container.luminance() > 0.48 {
-            0x071018
+            0x141728
         } else {
             0x101C26
         });
@@ -497,14 +580,14 @@ impl KwhalePalette {
             on_secondary_container,
             surface,
             surface_container_lowest: white,
-            surface_container_low: Rgb::from_u32(0xF2F2F7),
-            surface_container: Rgb::from_u32(0xECECF1),
-            surface_container_high: Rgb::from_u32(0xE6E6EB),
-            surface_container_highest: Rgb::from_u32(0xE0E0E5),
-            on_surface: Rgb::from_u32(0x1B1B1F),
-            on_surface_variant: Rgb::from_u32(0x45464F),
-            outline: Rgb::from_u32(0x767680),
-            outline_variant: Rgb::from_u32(0xC6C6D0),
+            surface_container_low: Rgb::from_u32(0xEFF0F8).blend(accent, 0.03),
+            surface_container: Rgb::from_u32(0xFFFFFF),
+            surface_container_high: Rgb::from_u32(0xE8E9F3).blend(accent, 0.04),
+            surface_container_highest: Rgb::from_u32(0xDFDFF0).blend(accent, 0.06),
+            on_surface: Rgb::from_u32(0x181A24),
+            on_surface_variant: Rgb::from_u32(0x525568),
+            outline: Rgb::from_u32(0x76788C),
+            outline_variant: Rgb::from_u32(0xD0D2E2).blend(accent, 0.08),
             error: Rgb::from_u32(0xBA1A1A),
             error_container: Rgb::from_u32(0xFFDAD6),
         }
@@ -534,18 +617,28 @@ impl KwhaleCoverPalette {
         } else {
             seed.trim()
         };
+        if clean == "Вечерний город" {
+            return if dark {
+                (Rgb::from_u32(0x7B5CFF), Rgb::from_u32(0x281D59))
+            } else {
+                (Rgb::from_u32(0xA693FF), Rgb::from_u32(0x5240A4))
+            };
+        }
         let h = Self::fnv1a_hash(clean);
-        let hue = (h % 360) as f32;
-        let hue2 = (hue + 38.0 + ((h / 360) % 24) as f32) % 360.0;
+        // Curated harmonic hues (violet, indigo, magenta-rose, amethyst, ocean, dusk-coral, sapphire, slate-blue)
+        const CURATED_HUES: [f32; 8] = [254.0, 226.0, 324.0, 278.0, 204.0, 344.0, 294.0, 238.0];
+        let base_hue = CURATED_HUES[(h as usize) % CURATED_HUES.len()];
+        let hue = (base_hue + ((h / 8) % 14) as f32) % 360.0;
+        let hue2 = (hue + 28.0 + ((h / 144) % 18) as f32) % 360.0;
         if dark {
             (
-                Rgb::from_hsl(hue, 0.42, 0.34),
-                Rgb::from_hsl(hue2, 0.48, 0.16),
+                Rgb::from_hsl(hue, 0.62, 0.48),
+                Rgb::from_hsl(hue2, 0.58, 0.17),
             )
         } else {
             (
-                Rgb::from_hsl(hue, 0.62, 0.82),
-                Rgb::from_hsl(hue2, 0.55, 0.66),
+                Rgb::from_hsl(hue, 0.66, 0.74),
+                Rgb::from_hsl(hue2, 0.56, 0.48),
             )
         }
     }
@@ -592,6 +685,165 @@ impl KwhaleCoverPalette {
             c2 = c2.to_hex(),
         )
     }
+
+    /// Generates an RGBA8 pixel buffer with atmospheric procedural cover artwork
+    /// (3D cosmic orb, flowing silk waves, twilight cityscape, or lit dusk facade)
+    /// and anti-aliased rounded corners for Slint `Image`.
+    pub fn placeholder_rgba(seed: &str, dark: bool, size: u32, corner_radius: f32) -> Vec<u8> {
+        let size = size.max(1);
+        let clean = if seed.trim().is_empty() {
+            "kwhale"
+        } else {
+            seed.trim()
+        };
+        let h = Self::fnv1a_hash(clean);
+        let (c1, c2) = Self::gradient(clean, dark);
+        let warm = Rgb::from_u32(match h % 4 {
+            0 => 0xEC6898,
+            1 => 0xF08270,
+            2 => 0xC678FF,
+            _ => 0x6AA8FF,
+        });
+        let accent = c1.blend(Rgb::from_u32(0xFFFFFF), if dark { 0.34 } else { 0.40 });
+        let dark_ink = Rgb::from_u32(0x131126);
+        let motif = match clean {
+            "Вечерний город" | "Утро" | "В дороге" => 2,
+            "Электроника" | "Вечерний микс" | "Синоптик" => 1,
+            "Dreamscape" | "Сигнал из космоса" | "Пыяла" => 0,
+            "Новые треки" | "Морская" | "Для работы" => 3,
+            _ => {
+                let mixed = h.wrapping_mul(0x9E37_79B9);
+                ((mixed >> 16) ^ mixed) % 4
+            }
+        };
+
+        let mut out = vec![0u8; (size * size * 4) as usize];
+        let s = size as f32;
+        let half = s * 0.5;
+        let r = corner_radius.clamp(0.0, half);
+
+        for y in 0..size {
+            let fy = y as f32 + 0.5;
+            let ty = fy / s;
+            for x in 0..size {
+                let fx = x as f32 + 0.5;
+                let tx = fx / s;
+
+                let alpha = if r > 0.0 {
+                    let qx = (fx - half).abs() - (half - r);
+                    let qy = (fy - half).abs() - (half - r);
+                    let outside = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt();
+                    let inside = qx.max(qy).min(0.0);
+                    let dist = outside + inside - r;
+                    (0.5 - dist).clamp(0.0, 1.0)
+                } else {
+                    1.0
+                };
+
+                let col = match motif {
+                    // 0: 3D lit Cosmic Sphere + Fresnel rim + soft ambient halo
+                    0 => {
+                        let bg = c2.blend(dark_ink, if dark { 0.55 } else { 0.12 });
+                        let mut c = bg.blend(c1, ((1.0 - ty) * 0.30).clamp(0.0, 1.0));
+                        let dx = tx - 0.5;
+                        let dy = ty - 0.48;
+                        let d = (dx * dx + dy * dy).sqrt();
+                        let halo = (1.0 - d * 1.95).clamp(0.0, 1.0).powi(2);
+                        c = c.blend(warm, halo * 0.34);
+                        let radius = 0.30;
+                        if d < radius {
+                            let nz = (1.0 - (d / radius).powi(2)).max(0.0).sqrt();
+                            let nx = dx / radius;
+                            let ny = dy / radius;
+                            let lambert = (nx * -0.45 + ny * -0.45 + nz * 0.77).clamp(0.0, 1.0);
+                            let rim = (1.0 - nz).powi(2);
+                            let mut orb = c2.blend(c1, lambert * 0.85);
+                            orb = orb.blend(warm, (0.35 + ny * 0.40).clamp(0.0, 0.85));
+                            orb = orb.blend(accent, (lambert.powi(3) * 0.55 + rim * 0.40).clamp(0.0, 0.85));
+                            let edge = ((radius - d) * 65.0).clamp(0.0, 1.0);
+                            c = c.blend(orb, edge);
+                        }
+                        c
+                    }
+                    // 1: Layered Silk Waves with luminous crests
+                    1 => {
+                        let mut c = c1.blend(warm, (tx * 0.45 + (1.0 - ty) * 0.35).clamp(0.0, 0.75));
+                        let phase = (h % 7) as f32 * 0.7;
+                        let w1 = 0.34 + 0.12 * (tx * 6.0 + phase).sin();
+                        let w2 = 0.54 + 0.11 * (tx * 5.2 + phase + 1.8).cos();
+                        let w3 = 0.74 + 0.09 * (tx * 6.8 + phase + 0.5).sin();
+                        let e1 = ((ty - w1) * 48.0).clamp(0.0, 1.0);
+                        let g1 = (1.0 - (ty - w1).abs() * 14.0).clamp(0.0, 1.0);
+                        let e2 = ((ty - w2) * 48.0).clamp(0.0, 1.0);
+                        let g2 = (1.0 - (ty - w2).abs() * 14.0).clamp(0.0, 1.0);
+                        let e3 = ((ty - w3) * 48.0).clamp(0.0, 1.0);
+                        c = c.blend(warm.blend(c1, 0.35), e1 * 0.82);
+                        c = c.blend(accent, g1 * 0.24);
+                        c = c.blend(c1.blend(c2, 0.45), e2 * 0.86);
+                        c = c.blend(warm, g2 * 0.22);
+                        c.blend(c2.blend(dark_ink, 0.45), e3 * 0.90)
+                    }
+                    // 2: Sunset Horizon + Glowing Orb Sun + Distant Dusk Hills/Cityline
+                    2 => {
+                        let sky = c2.blend(c1, (ty * 0.8).clamp(0.0, 1.0));
+                        let mut c = sky.blend(warm, (ty * 1.15 - 0.15).clamp(0.0, 0.82));
+                        let sun_d = ((tx - 0.62).powi(2) + (ty - 0.46).powi(2)).sqrt();
+                        let glow = (1.0 - sun_d * 2.1).clamp(0.0, 1.0).powi(2);
+                        c = c.blend(Rgb::from_u32(0xF69B78), glow * 0.55);
+                        if sun_d < 0.135 {
+                            let sun_edge = ((0.135 - sun_d) * 55.0).clamp(0.0, 1.0);
+                            c = c.blend(accent.blend(Rgb::from_u32(0xFFD1B3), 0.45), sun_edge * 0.82);
+                        }
+                        let city_h = if (0.30..0.37).contains(&tx) {
+                            0.60
+                        } else if (0.42..0.48).contains(&tx) {
+                            0.63
+                        } else if (0.72..0.79).contains(&tx) {
+                            0.61
+                        } else {
+                            1.0
+                        };
+                        let ridge = (0.68 + 0.055 * (tx * 8.5).sin() + 0.025 * (tx * 20.0).cos()).min(city_h);
+                        let ridge_mask = ((ty - ridge) * 55.0).clamp(0.0, 1.0);
+                        c.blend(dark_ink, ridge_mask * 0.86)
+                    }
+                    // 3: Architectural Dusk Facade + Warm Diagonal Sun + Window Grid
+                    _ => {
+                        let dusk = c1.blend(warm, (tx * 0.55 + (1.0 - ty) * 0.25).clamp(0.0, 0.72));
+                        let mut c = dusk.blend(accent, ((1.0 - tx) * 0.20 * (1.0 - ty)).clamp(0.0, 0.4));
+                        let roof_y = 0.24 + (tx - 0.20) * 0.42;
+                        if tx > 0.22 && ty > roof_y {
+                            let is_front = tx < 0.66;
+                            let base_wall = if is_front {
+                                c2.blend(warm, 0.26)
+                            } else {
+                                c2.blend(dark_ink, 0.58)
+                            };
+                            let shade = ((ty - roof_y) * 0.9).clamp(0.0, 0.55);
+                            let mut wall = base_wall.blend(dark_ink, shade);
+                            if is_front && ty > roof_y + 0.06 {
+                                let gx = ((tx - 0.26) * 14.0).fract();
+                                let gy = ((ty - roof_y - 0.06) * 12.0).fract();
+                                if gx > 0.22 && gx < 0.72 && gy > 0.20 && gy < 0.68 {
+                                    wall = wall.blend(dark_ink, 0.45);
+                                }
+                            }
+                            let bevel = ((ty - roof_y) * 80.0).clamp(0.0, 1.0);
+                            c = c.blend(wall, bevel * 0.92);
+                        }
+                        c
+                    }
+                };
+
+                let idx = ((y * size + x) * 4) as usize;
+                out[idx] = col.r;
+                out[idx + 1] = col.g;
+                out[idx + 2] = col.b;
+                out[idx + 3] = (alpha * 255.0).round() as u8;
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -615,5 +867,40 @@ mod tests {
         assert!(svg.contains(">К<"));
         let svg2 = KwhaleCoverPalette::placeholder_svg("Кино", true, true, 128);
         assert!(svg2.contains(">К<"));
+    }
+
+    #[test]
+    fn platform_style_resolution_handles_desktops() {
+        assert_eq!(
+            PlatformStyle::Gnome.resolve(Some("KDE")),
+            PlatformStyle::Gnome
+        );
+        assert_eq!(
+            PlatformStyle::Auto.resolve(Some("KDE")),
+            if cfg!(target_os = "windows") {
+                PlatformStyle::Windows
+            } else {
+                PlatformStyle::Kde
+            }
+        );
+        assert_eq!(
+            PlatformStyle::Auto.resolve(Some("ubuntu:GNOME")),
+            if cfg!(target_os = "windows") {
+                PlatformStyle::Windows
+            } else {
+                PlatformStyle::Gnome
+            }
+        );
+    }
+
+    #[test]
+    fn placeholder_rgba_renders_rounded_buffer() {
+        let buf = KwhaleCoverPalette::placeholder_rgba("Кино", true, 32, 8.0);
+        assert_eq!(buf.len(), 32 * 32 * 4);
+        // Corner pixel (0,0) should be transparent because of rounded SDF mask.
+        assert_eq!(buf[3], 0);
+        // Center pixel (16,16) should be fully opaque.
+        let center_idx = (16 * 32 + 16) * 4;
+        assert_eq!(buf[center_idx + 3], 255);
     }
 }

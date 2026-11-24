@@ -1,7 +1,7 @@
 use crate::error::CoreResult;
 use crate::models::Session;
 use crate::server_url::ServerUrl;
-use crate::theme::{ThemeMode, UiBackend};
+use crate::theme::{PlatformStyle, ThemeMode, UiBackend};
 use directories::ProjectDirs;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
@@ -141,6 +141,10 @@ pub struct AppSettings {
     #[serde(default)]
     pub follow_system_accent: bool,
     #[serde(default)]
+    pub system_accent_rgb: Option<u32>,
+    #[serde(default)]
+    pub platform_style: PlatformStyle,
+    #[serde(default)]
     pub ui_backend: UiBackend,
     #[serde(default)]
     pub llm_api_key: String,
@@ -160,6 +164,8 @@ pub struct AppSettings {
     pub window_width: i32,
     #[serde(default = "default_window_height")]
     pub window_height: i32,
+    #[serde(default = "default_true")]
+    pub close_to_tray: bool,
 }
 
 fn default_api_url() -> String {
@@ -167,7 +173,7 @@ fn default_api_url() -> String {
 }
 
 fn default_accent_id() -> i32 {
-    2
+    10
 }
 
 fn default_true() -> bool {
@@ -195,9 +201,11 @@ impl Default for AppSettings {
         Self {
             api_base_url: default_api_url(),
             allow_insecure_http: false,
-            theme_mode: ThemeMode::Dark,
+            theme_mode: ThemeMode::System,
             accent_id: default_accent_id(),
-            follow_system_accent: false,
+            follow_system_accent: true,
+            system_accent_rgb: None,
+            platform_style: PlatformStyle::Auto,
             ui_backend: UiBackend::Auto,
             llm_api_key: String::new(),
             llm_endpoint: String::new(),
@@ -208,6 +216,7 @@ impl Default for AppSettings {
             device_id: default_device_id(),
             window_width: default_window_width(),
             window_height: default_window_height(),
+            close_to_tray: true,
         }
     }
 }
@@ -344,6 +353,7 @@ impl TokenStore {
     }
 }
 
+#[cfg(target_os = "linux")]
 async fn save_keyring_best_effort(session: &Session) -> anyhow::Result<()> {
     let keyring = oo7::Keyring::new().await?;
     let json = serde_json::to_string(session)?;
@@ -358,6 +368,12 @@ async fn save_keyring_best_effort(session: &Session) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "linux"))]
+async fn save_keyring_best_effort(_session: &Session) -> anyhow::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
 async fn load_keyring_best_effort() -> anyhow::Result<Option<Session>> {
     let keyring = oo7::Keyring::new().await?;
     let items = keyring
@@ -372,11 +388,22 @@ async fn load_keyring_best_effort() -> anyhow::Result<Option<Session>> {
     Ok(None)
 }
 
+#[cfg(not(target_os = "linux"))]
+async fn load_keyring_best_effort() -> anyhow::Result<Option<Session>> {
+    Ok(None)
+}
+
+#[cfg(target_os = "linux")]
 async fn clear_keyring_best_effort() -> anyhow::Result<()> {
     let keyring = oo7::Keyring::new().await?;
     keyring
         .delete(&[("app", "org.dueattendant149.Kwhale"), ("type", "session")])
         .await?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn clear_keyring_best_effort() -> anyhow::Result<()> {
     Ok(())
 }
 

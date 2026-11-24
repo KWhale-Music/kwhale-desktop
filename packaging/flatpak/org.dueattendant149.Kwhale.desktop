@@ -2,7 +2,7 @@
 Type=Application
 Name=KWhale
 GenericName=Музыкальный плеер
-Comment=Нативный музыкальный клиент KWhale (libadwaita и Qt6)
+Comment=Нативный музыкальный клиент KWhale (Material You 3, адаптация под DE)
 Exec=kwhale %u
 Icon=org.dueattendant149.Kwhale
 Terminal=false

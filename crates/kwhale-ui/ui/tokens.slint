@@ -1,0 +1,71 @@
+import "../../../assets/fonts/vk_sans_display_regular.ttf";
+import "../../../assets/fonts/vk_sans_display_medium.ttf";
+import "../../../assets/fonts/vk_sans_display_demibold.ttf";
+import "../../../assets/fonts/vk_sans_display_bold.ttf";
+import "../../../assets/fonts/vk_sans_text_light.ttf";
+import "../../../assets/fonts/vk_sans_text_regular.ttf";
+import "../../../assets/fonts/vk_sans_text_medium.ttf";
+import "../../../assets/fonts/vk_sans_text_demibold.ttf";
+import "../../../assets/fonts/vk_sans_text_bold.ttf";
+
+export global Theme {
+    // Typography families (matched against assets/fonts/*.ttf via fc-scan)
+    out property <string> display-font: "VK Sans Display";
+    out property <string> text-font: "VK Sans Text 13pt";
+
+    // Material You 3 tonal color roles (updated dynamically from KwhalePalette)
+    in property <bool> is-dark: true;
+    in property <bool> is-amoled: false;
+    in property <color> surface: #141420;
+    in property <color> surface-lowest: #0e0e16;
+    in property <color> surface-low: #191926;
+    in property <color> surface-container: #1f1f2e;
+    in property <color> surface-high: #28283b;
+    in property <color> surface-highest: #34334b;
+    in property <color> on-surface: #eeeaf6;
+    in property <color> on-surface-variant: #aba7ba;
+    in property <color> outline: #7b778d;
+    in property <color> outline-variant: #37364b;
+    in property <color> primary: #b8b1ff;
+    in property <color> on-primary: #161233;
+    in property <color> primary-container: #3e3a64;
+    in property <color> on-primary-container: #efebfd;
+    in property <color> secondary-container: #2c2b44;
+    in property <color> on-secondary-container: #ddd8f2;
+    in property <color> error: #ffb4ab;
+    in property <color> error-container: #93000a;
+
+    // Semantic interactive, scrim & dark-overlay tokens (no mid-render hexes)
+    in property <color> primary-hover: #cac4ff;
+    in property <color> primary-pressed: #a49cf0;
+    in property <color> overlay-fg: #f4f2fc;
+    in property <color> overlay-fg-muted: #d2cce8;
+    in property <color> overlay-surface: #ffffff1c;
+    in property <color> overlay-surface-hover: #ffffff2b;
+    in property <color> overlay-surface-pressed: #ffffff38;
+    in property <color> overlay-border: #ffffff22;
+    in property <color> overlay-track: #ffffff38;
+    in property <color> overlay-accent: #c8c1ff;
+    in property <color> overlay-on-accent: #161233;
+    in property <color> overlay-scrim: #121222cc;
+    in property <color> modal-backdrop: #080812a8;
+    out property <color> widget-surface: #141218;
+    out property <color> widget-placeholder: #231e33;
+
+    // Platform style adaptation: "gnome" | "kde" | "windows"
+    in-out property <string> platform-id: "gnome";
+    out property <bool> is-gnome: platform-id == "gnome";
+    out property <bool> is-kde: platform-id == "kde";
+    out property <bool> is-windows: platform-id == "windows";
+
+    // Platform-adapted geometry tokens
+    out property <length> top-bar-height: is-gnome ? 56px : 46px;
+    out property <length> hero-radius: is-gnome ? 20px : is-windows ? 12px : 10px;
+    out property <length> card-radius: is-gnome ? 16px : 8px;
+    out property <length> row-radius: is-gnome ? 14px : 6px;
+    out property <length> nav-radius: is-gnome ? 999px : 6px;
+    out property <length> search-radius: is-gnome ? 999px : 8px;
+    out property <length> pill-radius: is-gnome ? 999px : 6px;
+    out property <length> panel-border-width: is-gnome ? 0px : 1px;
+    out property <length> card-border-width: is-gnome ? 0px : 1px;
+}
