@@ -8,3 +8,11 @@
 *.flatpak
 .DS_Store
 .qmlls.ini
+
+# GitHub safety rules
+.env
+secrets.env
+*.jks
+*.keystore
+*.dump
+*.dump.gz
