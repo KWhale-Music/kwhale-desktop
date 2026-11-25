@@ -17,7 +17,7 @@
 
 </div>
 
-Кроссплатформенный десктоп-клиент для [KWhale Server](https://github.com/kwhale-music/kwhale-server)
+Кроссплатформенный десктоп-клиент для [KWhale Server](https://github.com/KWhale-Music/kwhale-server)
 на едином Rust-ядре с интерфейсом **Material You 3** (Slint), адаптирующимся под
 GNOME, KDE Plasma, нейтральные WM и Windows. Воспроизведение через GStreamer с локальным
 Range/кэш-прокси, интеграция MPRIS2, синхронизированные тексты песен и deep links `kwhale://`.
@@ -48,10 +48,12 @@ Range/кэш-прокси, интеграция MPRIS2, синхронизиро
 `org.freedesktop.Sdk.Extension.rust-stable//25.08`:
 
 ```bash
-git clone https://github.com/kwhale-music/kwhale-desktop.git
+git clone https://github.com/KWhale-Music/kwhale-desktop.git
 cd kwhale-desktop
 ./packaging/flatpak/build-flatpak.sh
 ```
+
+Готовые `.flatpak`-бандлы публикуются в [GitHub Releases](https://github.com/KWhale-Music/kwhale-desktop/releases).
 
 Скрипт вендорит зависимости (`cargo vendor --locked`), собирает `kwhale` и
 `kwhale-ui` поверх KDE-рантайма, экспортирует однофайловый бандл `target/kwhale-desktop.flatpak`
@@ -94,7 +96,7 @@ kwhale-desktop/
 
 ## 🧭 Review от автора
 
-*Честные заметки автора — раздел в черновике и будет дополняться.*
+*Честные заметки автора — плюсы, компромиссы и шероховатости.*
 
 Чем я реально доволен:
 

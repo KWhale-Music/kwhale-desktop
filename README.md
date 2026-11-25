@@ -17,7 +17,7 @@
 
 </div>
 
-Cross-platform desktop client for the [KWhale Server](https://github.com/kwhale-music/kwhale-server),
+Cross-platform desktop client for the [KWhale Server](https://github.com/KWhale-Music/kwhale-server),
 built on a single Rust core with a **Material You 3** interface (Slint) that adapts to
 GNOME, KDE Plasma, neutral window managers and Windows. GStreamer playback with a local
 Range/caching proxy, MPRIS2 integration, synced lyrics panel, and `kwhale://` deep links.
@@ -48,10 +48,12 @@ Requires `org.flatpak.Builder`, `org.kde.Platform//6.11`, `org.kde.Sdk//6.11` an
 `org.freedesktop.Sdk.Extension.rust-stable//25.08`:
 
 ```bash
-git clone https://github.com/kwhale-music/kwhale-desktop.git
+git clone https://github.com/KWhale-Music/kwhale-desktop.git
 cd kwhale-desktop
 ./packaging/flatpak/build-flatpak.sh
 ```
+
+Prebuilt `.flatpak` bundles are published in [GitHub Releases](https://github.com/KWhale-Music/kwhale-desktop/releases).
 
 The script vendors dependencies (`cargo vendor --locked`), builds `kwhale` and
 `kwhale-ui` on the KDE runtime, exports a single-file bundle `target/kwhale-desktop.flatpak`
@@ -89,7 +91,7 @@ packaging/flatpak/    # manifest, desktop file, metainfo, build script
 
 ## 🧭 Author's review
 
-*Honest notes from the author — this section is a draft and will keep evolving.*
+*Honest notes from the author — trade-offs and open rough edges.*
 
 What I'm genuinely happy with:
 

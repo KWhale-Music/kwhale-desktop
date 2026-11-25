@@ -7,3 +7,4 @@
 /packaging/flatpak/downloads/
 *.flatpak
 .DS_Store
+.qmlls.ini
