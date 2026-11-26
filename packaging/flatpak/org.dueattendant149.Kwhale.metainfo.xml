@@ -4,7 +4,7 @@
   <name>KWhale</name>
   <summary>Self-hosted музыкальный клиент</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-3.0-or-later</project_license>
+  <project_license>AGPL-3.0-or-later</project_license>
   <description>
     <p>
       Нативный десктопный клиент для self-hosted музыкального сервера KWhale с единым
