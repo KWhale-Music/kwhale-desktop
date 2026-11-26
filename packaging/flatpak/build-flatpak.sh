@@ -42,14 +42,25 @@ flatpak run --share=network --command=bash \
 
 echo "==> Building Flatpak with org.flatpak.Builder"
 mkdir -p "$STATE_DIR" "$REPO_DIR" "$(dirname "$BUNDLE_OUT")"
-flatpak run --filesystem="$ROOT" org.flatpak.Builder \
-  --disable-rofiles-fuse \
-  --force-clean \
-  --jobs=6 \
-  --state-dir="$STATE_DIR" \
-  --repo="$REPO_DIR" \
-  "$BUILD_DIR" \
-  "$FLATPAK_DIR/org.dueattendant149.Kwhale.yml"
+if command -v flatpak-builder >/dev/null 2>&1; then
+  flatpak-builder \
+    --disable-rofiles-fuse \
+    --force-clean \
+    --jobs=6 \
+    --state-dir="$STATE_DIR" \
+    --repo="$REPO_DIR" \
+    "$BUILD_DIR" \
+    "$FLATPAK_DIR/org.dueattendant149.Kwhale.yml"
+else
+  flatpak run --filesystem="$ROOT" org.flatpak.Builder \
+    --disable-rofiles-fuse \
+    --force-clean \
+    --jobs=6 \
+    --state-dir="$STATE_DIR" \
+    --repo="$REPO_DIR" \
+    "$BUILD_DIR" \
+    "$FLATPAK_DIR/org.dueattendant149.Kwhale.yml"
+fi
 
 echo "==> Exporting single-file .flatpak bundle to $BUNDLE_OUT"
 flatpak build-bundle "$REPO_DIR" "$BUNDLE_OUT" org.dueattendant149.Kwhale
