@@ -8,7 +8,7 @@
 
 # KWhale Desktop
 
-**Нативный десктоп-клиент KWhale — один адаптивный Material You UI для Linux и Windows.**
+**Нативный десктоп-клиент KWhale — адаптивный Material You UI для Linux.**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.8x-DEA584.svg)](https://www.rust-lang.org/)
@@ -17,7 +17,7 @@
 
 </div>
 
-Кроссплатформенный десктоп-клиент для [KWhale Server](https://github.com/KWhale-Music/kwhale-server)
+Десктоп-клиент для [KWhale Server](https://github.com/KWhale-Music/kwhale-server),
 на едином Rust-ядре с интерфейсом **Material You 3** (Slint), адаптирующимся под
 GNOME, KDE Plasma, нейтральные WM и Windows. Воспроизведение через GStreamer с локальным
 Range/кэш-прокси, интеграция MPRIS2, синхронизированные тексты песен и deep links `kwhale://`.
