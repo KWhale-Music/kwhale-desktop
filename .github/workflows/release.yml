@@ -18,12 +18,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak
-          flatpak remote-add --user --if-not-exists flathub-full \
+          sudo flatpak remote-add --if-not-exists flathub-full \
             https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Install Flatpak SDK
         run: |
-          flatpak install --user -y flathub-full \
+          sudo flatpak install -y flathub-full \
             org.flatpak.Builder \
             org.kde.Platform//6.11 \
             org.kde.Sdk//6.11 \
