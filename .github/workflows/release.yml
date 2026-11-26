@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak
+          flatpak remote-add --user --if-not-exists flathub-full \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install Flatpak SDK
+        run: |
+          flatpak install --user -y flathub-full \
+            org.flatpak.Builder \
+            org.kde.Platform//6.11 \
+            org.kde.Sdk//6.11 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: Build Flatpak
+        run: |
+          mkdir -p "$HOME/.cargo"
+          ./packaging/flatpak/build-flatpak.sh
+
+      - name: Verify bundle
+        run: |
+          flatpak info --user org.dueattendant149.Kwhale | grep -E "Version|License"
+          ls -lh target/kwhale-desktop.flatpak
+
+      - name: Prepare release asset
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          cp target/kwhale-desktop.flatpak "kwhale-desktop-${VERSION}.flatpak"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kwhale-desktop-${{ github.ref_name }}
+          path: kwhale-desktop-${{ env.VERSION }}.flatpak
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: kwhale-desktop-${{ env.VERSION }}.flatpak
+          generate_release_notes: true
